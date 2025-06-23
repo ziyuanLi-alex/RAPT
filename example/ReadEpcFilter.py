@@ -7,7 +7,6 @@ def receivedEpc(epcInfo: LogBaseEpcInfo):
         print(epcInfo.epc + "-->" + epcInfo.tid)
         print(epcInfo.rssi)
 
-
 def receivedEpcOver(epcOver: LogBaseEpcOver):
     print("LogBaseEpcOver")
 

@@ -2,6 +2,7 @@ import questionary
 from rich.console import Console
 from settings import ConfigManager
 from check_status import *
+from binding import BindingManager
 
 def main_menu():
     """显示主菜单并等待用户选择。"""
@@ -9,7 +10,7 @@ def main_menu():
         "欢迎使用RFID数据采集工具，请选择操作:",
         choices=[
             '1. 开始数据采集',
-            '2. 绑定新标签',
+            '2. 标签绑定管理',
             '3. 检查读写器状态',
             '4. 系统设置',
             'q. 退出程序'
@@ -23,10 +24,6 @@ def start_collection_workflow(config):
     print(f"使用配置: COM口={config.com}, 波特率={config.baud}")
     pass
 
-def bind_tag_workflow(config):
-    """绑定新标签工作流。"""
-    # TODO: 实现标签绑定逻辑
-    pass
 
 # def check_status_workflow(config):
 #     """检查读写器状态工作流。"""
@@ -38,14 +35,17 @@ def run():
     # 创建配置管理器实例
     config = ConfigManager()
     config.load()  # 加载配置
+
+    # 创建绑定管理器实例
+    binding_manager = BindingManager(config)
     
     while True:
         choice = main_menu()
         
         if choice == '1. 开始数据采集':
             start_collection_workflow(config)
-        elif choice == '2. 绑定新标签':
-            bind_tag_workflow(config)
+        elif choice == '2. 标签绑定管理':
+            binding_manager.binding_entry(config)
         elif choice == '3. 检查读写器状态':
             check_status_workflow(config)
         elif choice == '4. 系统设置':

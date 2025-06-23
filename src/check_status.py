@@ -7,13 +7,10 @@ from rich.live import Live
 from rich.panel import Panel
 from rich.console import Console
 
-# --- 1. 准备用于UI更新的共享数据结构 ---
 # 创建一个线程安全的双端队列，用于存放最新的5条日志
 log_lines = deque(maxlen=5)
 log_lines_lock = threading.Lock()
 
-
-# --- 2. 修改回调函数，使其只更新数据，不直接打印 ---
 def receivedEpc(epcInfo: LogBaseEpcInfo):
     """此回调函数由读写器SDK的后台线程调用。"""
     if epcInfo.result == 0:
