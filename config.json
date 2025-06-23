@@ -1,0 +1,6 @@
+{
+    "baud": 115200,
+    "com": "com6",
+    "apply_filter": true,
+    "window_length": 5
+}

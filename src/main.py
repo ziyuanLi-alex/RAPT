@@ -1,5 +1,7 @@
 import questionary
 from rich.console import Console
+from settings import ConfigManager
+from check_status import *
 
 def main_menu():
     """显示主菜单并等待用户选择。"""
@@ -15,19 +17,40 @@ def main_menu():
     ).ask()
     return choice
 
+def start_collection_workflow(config):
+    """开始数据采集工作流。"""
+    # TODO: 实现数据采集逻辑
+    print(f"使用配置: COM口={config.com}, 波特率={config.baud}")
+    pass
+
+def bind_tag_workflow(config):
+    """绑定新标签工作流。"""
+    # TODO: 实现标签绑定逻辑
+    pass
+
+# def check_status_workflow(config):
+#     """检查读写器状态工作流。"""
+#     # TODO: 实现状态检查逻辑
+#     pass
+
 def run():
     console = Console()
+    # 创建配置管理器实例
+    config = ConfigManager()
+    config.load()  # 加载配置
+    
     while True:
         choice = main_menu()
         
         if choice == '1. 开始数据采集':
-            start_collection_workflow()
+            start_collection_workflow(config)
         elif choice == '2. 绑定新标签':
-            bind_tag_workflow()
+            bind_tag_workflow(config)
         elif choice == '3. 检查读写器状态':
-            check_status_workflow()
+            check_status_workflow(config)
         elif choice == '4. 系统设置':
-            settings_workflow()
+            from settings import settings_workflow
+            settings_workflow(config)
         elif choice == 'q. 退出程序' or choice is None:
             console.print("感谢使用，程序已退出。", style="bold green")
             break
