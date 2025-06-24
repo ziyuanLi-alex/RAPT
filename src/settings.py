@@ -61,19 +61,24 @@ def set_filter():
 class ConfigManager():
     
     def __init__(self) -> None:
+        # --- 通用配置 ---
+        self.config_file = "config.json"
+        
+        # --- 读写器硬件配置 ---
         self.baud = 115200
         self.com = "COM6"
-        self.apply_filter = False
-        self.window_length = 5
-        self.config_file = "config.json"
+        
+        # --- 数据处理配置 ---
+        self.frame_duration_ms = 100
+        self.output_dir = "data" 
     
     def save(self):
         """保存配置到文件。"""
         config_data = {
             "baud": self.baud,
             "com": self.com,
-            "apply_filter": self.apply_filter,
-            "window_length": self.window_length
+            "frame_duration_ms": self.frame_duration_ms,
+            "output_dir": self.output_dir
         }
         try:
             with open(self.config_file, 'w', encoding='utf-8') as f:
@@ -89,8 +94,8 @@ class ConfigManager():
                     config_data = json.load(f)
                     self.baud = config_data.get("baud", self.baud)
                     self.com = config_data.get("com", self.com)
-                    self.apply_filter = config_data.get("apply_filter", self.apply_filter)
-                    self.window_length = config_data.get("window_length", self.window_length)
+                    self.frame_duration_ms = config_data.get("frame_duration_ms", self.frame_duration_ms)
+                    self.output_dir = config_data.get("output_dir", self.output_dir)
                 print(f"已加载配置: COM口={self.com}, 波特率={self.baud}")
             except Exception as e:
                 print(f"加载配置失败，使用默认配置: {e}")
