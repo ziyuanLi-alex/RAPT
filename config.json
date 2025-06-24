@@ -1,6 +1,6 @@
 {
     "baud": 115200,
     "com": "com6",
-    "apply_filter": true,
-    "window_length": 5
+    "frame_duration_ms": 100,
+    "output_dir": "data"
 }

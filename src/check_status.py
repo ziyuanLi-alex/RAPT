@@ -31,10 +31,7 @@ def check_status_workflow(config, check_duration=3):
 
     console = Console()
     console.print(f"当前配置: 波特率={config.baud}, COM口={config.com}", style="bold")
-    if config.apply_filter:
-        console.print(f"当前滤波器设置: 启用={config.apply_filter}, 窗口长度={config.window_length}", style="bold")
-    else:
-        console.print("当前滤波器设置: 未启用", style="bold")
+    console.print(f"帧长度(ms):{config.frame_duration_ms}, output dir: {config.output_dir}")
 
     # 将所有与硬件交互的阻塞代码封装在一个函数中，以便在单独的线程中运行
     def reader_task():

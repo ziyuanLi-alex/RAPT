@@ -3,6 +3,7 @@ from rich.console import Console
 from settings import ConfigManager
 from check_status import *
 from binding import BindingManager
+from DataCollector import DataCollector
 
 def main_menu():
     """显示主菜单并等待用户选择。"""
@@ -25,11 +26,6 @@ def start_collection_workflow(config):
     pass
 
 
-# def check_status_workflow(config):
-#     """检查读写器状态工作流。"""
-#     # TODO: 实现状态检查逻辑
-#     pass
-
 def run():
     console = Console()
     # 创建配置管理器实例
@@ -38,12 +34,13 @@ def run():
 
     # 创建绑定管理器实例
     binding_manager = BindingManager(config)
+    data_collector = DataCollector(config)
     
     while True:
         choice = main_menu()
         
         if choice == '1. 开始数据采集':
-            start_collection_workflow(config)
+            data_collector.data_collect_entry()
         elif choice == '2. 标签绑定管理':
             binding_manager.binding_entry(config)
         elif choice == '3. 检查读写器状态':

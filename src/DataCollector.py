@@ -1,6 +1,8 @@
 import time
 import os
+from uhf.reader import *
 import h5py
+import json
 import statistics
 from collections import defaultdict
 import questionary
@@ -38,6 +40,15 @@ class DataCollector:
         # 记录会话中出现过的所有EPC，用于补零
         self.known_epcs_in_session = set()
 
+    def receivedEpc(self, epcInfo: LogBaseEpcInfo):
+        if epcInfo.result == 0:
+            self.on_data_received(epcInfo.epc, epcInfo.rssi)
+            print(epcInfo.epc, end='\r') 
+            # 验证可行性之后和onprocess进行连接
+
+    def receivedEpcOver(self, epcOver: LogBaseEpcOver):
+        print("LogBaseEpcOver")
+
     def start_session(self, action_type: str):
         """
         开始一个新的数据采集会话。
@@ -48,6 +59,13 @@ class DataCollector:
         if self.session_active:
             print("警告：一个会话已在进行中。请先停止当前会话。")
             return
+        
+        print("连接读卡器...")
+        # --连接读卡器--
+        self.gclient = GClient()
+        self.gclient.openSerial((self.config.com, self.config.baud))
+        self.gclient.callEpcInfo = self.receivedEpc
+        self.gclient.callEpcOver = self.receivedEpcOver
 
         print(f"开启新会话，动作类型: '{action_type}'")
         self.session_active = True
@@ -66,7 +84,7 @@ class DataCollector:
         self.h5_file = h5py.File(filepath, 'w')
         self.h5_file.attrs['action_type'] = action_type
         config_dict = {
-            k: v for k, v in self.config_obj.__dict__.items() if not k.startswith('_')
+            k: v for k, v in self.config.__dict__.items() if not k.startswith('_')
         }
         self.h5_file.attrs['config'] = json.dumps(config_dict)
         
@@ -81,6 +99,13 @@ class DataCollector:
         print("正在停止会话...")
         # 处理最后一帧的剩余数据
         self._process_frame()
+
+        print("停止读卡器...")
+        # 发送停止命令
+        stop = MsgBaseStop()
+        if self.gclient.sendSynMsg(stop) == 0:
+            print(stop.rtMsg)
+        self.gclient.close()
         
         self.session_active = False
         if self.h5_file:
@@ -164,13 +189,12 @@ class DataCollector:
         print("数据采集已启动，按 Ctrl+C 停止。")
         try:
             while True:
+                msg = MsgBaseInventoryEpc(antennaEnable=EnumG.AntennaNo_1.value,
+                            inventoryMode=EnumG.InventoryMode_Inventory.value)
+                if self.gclient.sendSynMsg(msg) == 0:
+                    print(msg.rtMsg)
                 time.sleep(1)
         except KeyboardInterrupt:
             self.stop_session()
             print("数据采集已停止。")
-        
-
-
-# --- 使用示例 ---
-if __name__ == '__main__':
-    pass
+    
