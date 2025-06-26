@@ -8,7 +8,7 @@ def settings_workflow(config):
         "请选择要修改的设置:",
         choices=[
             '1. 修改串口和波特率',
-            '2. 修改滤波器设置',
+            '2. 修改帧长度',
             '3. 保存当前配置',
             '4. 返回主菜单'
         ]
@@ -19,11 +19,10 @@ def settings_workflow(config):
         config.baud = int(baud)
         config.com = com
         print(f"已更新: 波特率={config.baud}, COM口={config.com}")
-    elif choice == '2. 修改滤波器设置':
-        apply_filter, window_length = set_filter()
-        config.apply_filter = apply_filter
-        config.window_length = int(window_length)
-        print(f"已更新滤波器设置: 启用={config.apply_filter}, 窗口长度={config.window_length}")
+    elif choice == '2. 修改帧长度':
+        frame_duration_ms = questionary.text("请输入新的帧长度（毫秒）：",default="100").ask()
+        config.frame_duration_ms = int(frame_duration_ms)
+        print(f"已更新: 帧长度={config.frame_duration_ms}毫秒")
     elif choice == '3. 保存当前配置':
         config.save()
         print("配置已保存")
@@ -46,17 +45,6 @@ def set_baud():
     com = questionary.text("从什么串口读取数据？（例如COM6，不分大小，windows下可以使用mode命令查看）").ask()
 
     return baud, com
-
-def set_filter():
-    apply_filter = questionary.confirm("要使用中值滤波器吗？",default=False).ask()
-    if apply_filter:
-        window_length = questionary.text("请输入滤波器窗口长度（建议为奇数）：",default="5").ask()
-    else:
-        window_length = "1"
-
-    window_length = int(window_length)
-
-    return apply_filter, window_length
 
 class ConfigManager():
     

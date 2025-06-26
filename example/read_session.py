@@ -22,10 +22,12 @@ def read_session_h5(filepath):
         print(f"数据形状: {data.shape}")
         print("前5行数据 [帧时间, 中值RSSI, 读数次数, 最大值RSSI]:")
         print(data[:5])
+        print("后5行数据 [帧时间, 中值RSSI, 读数次数, 最大值RSSI]:")
+        print(data[-5:])
     
     f.close()
 
 if __name__ == "__main__":
     # 使用示例
-    filepath = "data/20250624-181323_run.h5"  # 修改为实际文件路径
+    filepath = "data/20250625-111108_run.h5"  # 修改为实际文件路径
     read_session_h5(filepath)

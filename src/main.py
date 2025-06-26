@@ -1,5 +1,6 @@
 import questionary
 from rich.console import Console
+
 from settings import ConfigManager
 from check_status import *
 from binding import BindingManager
