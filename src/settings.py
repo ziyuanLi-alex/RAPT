@@ -1,33 +1,59 @@
 import questionary
 import json
 import os
-
+from questionary import Choice
 def settings_workflow(config):
-    """系统设置工作流。"""
-    choice = questionary.select(
-        "请选择要修改的设置:",
-        choices=[
-            '1. 修改串口和波特率',
-            '2. 修改帧长度',
-            '3. 保存当前配置',
-            '4. 返回主菜单'
-        ]
-    ).ask()
-    
-    if choice == '1. 修改串口和波特率':
-        baud, com = set_baud()
-        config.baud = int(baud)
-        config.com = com
-        print(f"已更新: 波特率={config.baud}, COM口={config.com}")
-    elif choice == '2. 修改帧长度':
-        frame_duration_ms = questionary.text("请输入新的帧长度（毫秒）：",default="100").ask()
-        config.frame_duration_ms = int(frame_duration_ms)
-        print(f"已更新: 帧长度={config.frame_duration_ms}毫秒")
-    elif choice == '3. 保存当前配置':
-        config.save()
-        print("配置已保存")
-    elif choice == '4. 返回主菜单':
-        return
+    """系统设置工作流（旧菜单里新增“选择输出模式”）。"""
+    while True:
+        choice = questionary.select(
+            "请选择要修改的设置:",
+            choices=[
+                '1. 修改串口和波特率',
+                '2. 修改帧长度',
+                '3. 选择输出模式（HDF5 / CSV / BOTH）',  # ← 新增
+                '4. 保存当前配置',
+                '5. 返回主菜单'
+            ]
+        ).ask()
+
+        if choice is None or choice == '5. 返回主菜单':
+            return
+
+        if choice == '1. 修改串口和波特率':
+            baud, com = set_baud()
+            if baud:  # 避免 None
+                config.baud = int(baud)
+            if com:
+                config.com = com
+            print(f"已更新: 波特率={config.baud}, COM口={config.com}")
+
+        elif choice == '2. 修改帧长度':
+            frame_duration_ms = questionary.text(
+                "请输入新的帧长度（毫秒）：", default=str(config.frame_duration_ms)
+            ).ask()
+            if frame_duration_ms and frame_duration_ms.isdigit():
+                config.frame_duration_ms = int(frame_duration_ms)
+                print(f"已更新: 帧长度={config.frame_duration_ms}毫秒")
+            else:
+                print("输入无效，已忽略。")
+
+        elif choice == '3. 选择输出模式（HDF5 / CSV / BOTH）':
+            mode = questionary.select(
+                f"选择输出模式（当前：{getattr(config, 'output_format', 'h5')}）",
+                choices=[
+                    Choice("仅 HDF5（原始模式）", "h5"),
+                    Choice("仅 CSV（Excel 直接打开）", "csv"),
+                    Choice("同时输出 HDF5 + CSV", "both"),
+                    Choice("↩ 返回上级", "back"),
+                ]
+            ).ask()
+            if mode in ("h5", "csv", "both"):
+                config.output_format = mode
+                print(f"已设置输出模式：{config.output_format}")
+
+        elif choice == '4. 保存当前配置':
+            config.save()
+            print("配置已保存")
 
 def set_baud():
     """设置读写器波特率。"""
@@ -58,15 +84,17 @@ class ConfigManager():
         
         # --- 数据处理配置 ---
         self.frame_duration_ms = 100
-        self.output_dir = "data" 
-    
+        self.output_dir = "data"
+        self.output_format = "h5"  # 新增：可选 "h5" | "csv" | "both"
+
     def save(self):
         """保存配置到文件。"""
         config_data = {
             "baud": self.baud,
             "com": self.com,
             "frame_duration_ms": self.frame_duration_ms,
-            "output_dir": self.output_dir
+            "output_dir": self.output_dir,
+            "output_format": self.output_format,  # ← 新增
         }
         try:
             with open(self.config_file, 'w', encoding='utf-8') as f:
@@ -84,6 +112,7 @@ class ConfigManager():
                     self.com = config_data.get("com", self.com)
                     self.frame_duration_ms = config_data.get("frame_duration_ms", self.frame_duration_ms)
                     self.output_dir = config_data.get("output_dir", self.output_dir)
+                    self.output_format = config_data.get("output_format", getattr(self, "output_format", "h5"))
                 print(f"已加载配置: COM口={self.com}, 波特率={self.baud}")
             except Exception as e:
                 print(f"加载配置失败，使用默认配置: {e}")
