@@ -41,6 +41,7 @@ class DiagnosticsInterface(QWidget):
         self.durationSpinBox = SpinBox(self.controlCard)
         self.durationSpinBox.setRange(1, 60)
         self.durationSpinBox.setValue(3)
+        self.durationSpinBox.setSingleStep(1) 
         self.durationSpinBox.setFixedWidth(100)
 
         self.startBtn = PrimaryPushButton("开始检查", self.controlCard)
@@ -76,6 +77,7 @@ class DiagnosticsInterface(QWidget):
         self.logDisplay.appendPlainText(f"正在准备检查... (COM: {self.config.com}, Baud: {self.config.baud})")
         
         self.startBtn.setEnabled(False)
+        self.durationSpinBox.setEnabled(False) # Disable spinbox during check
         self.startBtn.setText("检查中...")
         
         self.thread = InventoryThread(
@@ -125,10 +127,12 @@ class DiagnosticsInterface(QWidget):
         )
         # Enable button
         self.startBtn.setEnabled(True)
+        self.durationSpinBox.setEnabled(True) # Re-enable spinbox
         self.startBtn.setText("开始检查")
 
     def onFinished(self):
         self.startBtn.setEnabled(True)
+        self.durationSpinBox.setEnabled(True) # Re-enable spinbox
         self.startBtn.setText("开始检查")
         if self.stateTooltip:
             self.stateTooltip.setContent('检查完成')

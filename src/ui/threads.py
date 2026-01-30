@@ -90,3 +90,220 @@ class InventoryThread(QThread):
 
     def stop(self):
         self.is_running = False
+
+class ContinuousCollectThread(QThread):
+    """ 持续采集线程 (对应原线形模式) """
+    progress_update = pyqtSignal(dict) # {time, frame_count, last_epc}
+    saved = pyqtSignal(str) # file_path
+    error = pyqtSignal(str)
+    
+    def __init__(self, data_collector, action_name, duration=0, parent=None):
+        super().__init__(parent)
+        self.dc = data_collector
+        self.action_name = action_name
+        self.duration = duration
+        self.is_running = False
+
+    def run(self):
+        self.is_running = True
+        try:
+            # 导入 DataCollector 相关依赖
+            from collections import defaultdict
+            import statistics
+            import csv
+            import os
+            from pathlib import Path
+            from datetime import datetime
+
+            stream = self.dc.stream()
+            
+            start_t = time.time()
+            buckets = defaultdict(lambda: defaultdict(list))
+            frame_span = 0.1
+            frame_count = 0
+            
+            # 使用 queue 来非阻塞读取 stream
+            from queue import Queue, Empty
+            import threading
+            q = Queue(maxsize=10000)
+            stop_sentinel = object()
+            
+            def feeder():
+                try:
+                    for raw in stream:
+                        q.put(raw)
+                        if not self.is_running: break
+                except Exception:
+                    pass
+                finally:
+                    q.put(stop_sentinel)
+            
+            feeder_thread = threading.Thread(target=feeder, daemon=True)
+            feeder_thread.start()
+            
+            while self.is_running:
+                # 检查时长限制
+                elapsed = time.time() - start_t
+                if self.duration > 0 and elapsed >= self.duration:
+                    break
+                
+                try:
+                    item = q.get(timeout=0.1)
+                except Empty:
+                    continue
+                    
+                if item is stop_sentinel:
+                    break
+                    
+                # 处理数据
+                ts = float(item.get("ts", time.time()))
+                epc = str(item["epc"])
+                rssi = float(item.get("rssi", item.get("intensity", 0)))
+                
+                idx = int((ts - start_t) / frame_span)
+                if idx < 0: idx = 0
+                buckets[epc][idx].append(rssi)
+                frame_count += 1
+                
+                # 更新 UI (降频)
+                if frame_count % 5 == 0:
+                    self.progress_update.emit({
+                        "time": elapsed,
+                        "frame_count": frame_count,
+                        "last_epc": epc
+                    })
+            
+            # 停止采集
+            self.dc.stop_stream()
+            feeder_thread.join(timeout=1.0)
+            
+            # 保存数据
+            if not buckets:
+                self.error.emit("未采集到数据")
+                return
+
+            # 数据后处理
+            total_span = elapsed
+            end_idx = max(1, int(total_span / frame_span))
+            epc_order = list(buckets.keys())
+            per_epc_rows = {}
+            
+            for epc in epc_order:
+                rows = []
+                table = buckets[epc]
+                for fidx in range(end_idx):
+                    vals = table.get(fidx, [])
+                    t_rel = round((fidx + 1) * frame_span, 6)
+                    if vals:
+                        sv = sorted(vals)
+                        n = len(sv)
+                        median = sv[n // 2] if n % 2 == 1 else 0.5 * (sv[n // 2 - 1] + sv[n // 2])
+                        cnt, vmax, mean = n, max(vals), sum(vals) / n
+                    else:
+                        median = cnt = vmax = mean = 0.0
+                    rows.append((t_rel, median, cnt, vmax, mean))
+                per_epc_rows[epc] = rows
+
+            # 生成文件路径
+            today = datetime.now().strftime("%Y%m%d")
+            out_dir = Path(self.dc.config.output_dir) / today / "continuous_mode"
+            out_dir.mkdir(parents=True, exist_ok=True)
+            
+            parts = ["continuous"]
+            if self.duration > 0: parts.append("timed")
+            if self.action_name: parts.append(self.action_name.strip())
+            base_name = "_".join(parts)
+            
+            file_path = out_dir / f"{base_name}.csv"
+            # 简单去重命名逻辑
+            i = 2
+            while file_path.exists():
+                file_path = out_dir / f"{base_name}_v{i}.csv"
+                i += 1
+            
+            # 写入 CSV
+            with open(file_path, "w", newline="", encoding="utf-8-sig") as f:
+                w = csv.writer(f)
+                # 简单表头，不依赖 BindingManager (UI 层可处理展示，文件保留原始数据)
+                header_row = []
+                for epc in epc_order:
+                    header_row.extend([f"{epc}_Time", f"{epc}_Median", f"{epc}_Count", f"{epc}_Max", f"{epc}_Mean", ""])
+                w.writerow(header_row)
+                
+                for r in range(end_idx):
+                    row = []
+                    for epc in epc_order:
+                        row.extend(list(per_epc_rows[epc][r]))
+                        row.append("") # Spacer
+                    w.writerow(row)
+            
+            self.saved.emit(str(file_path))
+            
+        except Exception as e:
+            self.error.emit(str(e))
+        finally:
+            self.is_running = False
+
+    def stop(self):
+        self.is_running = False
+
+
+class SingleShotCollectThread(QThread):
+    """ 单次采集线程 (对应原点形模式的一次 Trigger) """
+    capture_finished = pyqtSignal(dict, str) # {epc: [rssi, ...]}, point_label
+    error = pyqtSignal(str)
+
+    def __init__(self, data_collector, point_label, duration=3.0, parent=None):
+        super().__init__(parent)
+        self.dc = data_collector
+        self.point_label = point_label
+        self.duration = duration
+
+    def run(self):
+        try:
+            from collections import defaultdict
+            import threading
+            from queue import Queue, Empty
+            
+            stream = self.dc.stream()
+            q = Queue(maxsize=10000)
+            stop_sentinel = object()
+            
+            def feeder():
+                try:
+                    for raw in stream:
+                        q.put(raw)
+                finally:
+                    q.put(stop_sentinel)
+            
+            feeder_thread = threading.Thread(target=feeder, daemon=True)
+            feeder_thread.start()
+            
+            start_t = time.time()
+            collected = defaultdict(list)
+            
+            while time.time() - start_t <= self.duration:
+                try:
+                    item = q.get(timeout=0.1)
+                    if item is stop_sentinel:
+                        break
+                    
+                    epc = str(item.get("epc", "")).strip()
+                    rssi = float(item.get("rssi", item.get("intensity", 0)))
+                    
+                    # 仅保留每个 EPC 的前 3 个数据点 (参考原逻辑)
+                    if len(collected[epc]) < 3:
+                        collected[epc].append(rssi)
+                        
+                except Empty:
+                    continue
+            
+            self.dc.stop_stream()
+            feeder_thread.join(timeout=1.0)
+            
+            # 返回字典
+            result = {k: v for k, v in collected.items()}
+            self.capture_finished.emit(result, self.point_label)
+            
+        except Exception as e:
+            self.error.emit(str(e))
