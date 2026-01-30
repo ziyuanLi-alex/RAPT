@@ -12,7 +12,7 @@ from qfluentwidgets import (
     SplashScreen
 )
 
-from .views import HomeInterface, CollectInterface
+from .views import HomeInterface, CollectInterface, SettingsInterface
 
 
 class MainWindow(FluentWindow):
@@ -21,12 +21,14 @@ class MainWindow(FluentWindow):
         logging.info("MainWindow constructor called")
         self.initWindow()
         logging.info("MainWindow initialized")
+        # 移除了这里的重复设置，统一在 initWindow 中处理，或直接依赖 QApplication 的图标
+        # self.setWindowIcon(QIcon('resources/RAPT_icon.png')) 
 
         # 1. 初始化子页面
         self.homeInterface = HomeInterface(self)
         self.collectInterface = CollectInterface(self)
+        self.settingsInterface = SettingsInterface(self)
         # self.tagsInterface = TagsInterface(self)
-        # self.settingsInterface = SettingsInterface(self)
 
         # 2. 初始化导航栏
         self.initNavigation()
@@ -61,7 +63,6 @@ class MainWindow(FluentWindow):
         )
         logging.info("Home interface added to navigation")  
 
-        # 数据采集 (对应原 CLI 的 "开始数据采集")
         self.addSubInterface(
             self.collectInterface,
             FIF.PLAY, # 或者用 VIDEO 图标
@@ -81,9 +82,9 @@ class MainWindow(FluentWindow):
         # --- 底部导航区域 ---
         
         # 系统设置
-        # self.addSubInterface(
-        #     self.settingsInterface,
-        #     FIF.SETTING,
-        #     "设置 (Settings)",
-        #     NavigationItemPosition.BOTTOM
-        # )
+        self.addSubInterface(
+            self.settingsInterface,
+            FIF.SETTING,
+            "设置 (Settings)",
+            NavigationItemPosition.BOTTOM
+        )
