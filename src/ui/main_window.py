@@ -14,7 +14,7 @@ from qfluentwidgets import (
     SplashScreen
 )
 
-from .views import HomeInterface, CollectInterface, SettingsInterface
+from .views import HomeInterface, CollectInterface, SettingsInterface, DiagnosticsInterface
 
 
 class MainWindow(FluentWindow):
@@ -34,6 +34,7 @@ class MainWindow(FluentWindow):
         # 1. 初始化子页面
         self.homeInterface = HomeInterface(self)
         self.collectInterface = CollectInterface(self)
+        self.diagnosticsInterface = DiagnosticsInterface(self)
         self.settingsInterface = SettingsInterface(self)
 
         # 2. 初始化导航栏
@@ -79,6 +80,14 @@ class MainWindow(FluentWindow):
 
         # --- 底部导航区域 ---
         
+        # 系统诊断
+        self.addSubInterface(
+            self.diagnosticsInterface,
+            FIF.HEART,
+            "系统诊断 (Diagnostics)",
+            NavigationItemPosition.TOP
+        )
+
         # 系统设置
         self.addSubInterface(
             self.settingsInterface,

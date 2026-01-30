@@ -102,12 +102,6 @@ class HomeInterface(QWidget):
         self.readerBtn.setText("检查中...")
         self.readerStatusLabel.setText("正在连接...")
         
-        # 重新加载配置，确保使用最新的 COM 口
-        # self.config.load()
-        
-        # 为了不卡顿 UI，可以在这里使用 QThread，但为了简单演示，先同步执行(因为打开串口通常很快，除非超时)
-        # 如果需要更丝滑的体验，建议放入 QThread
-        
         try:
             client = GClient()
             if client.openSerial((self.config.com, self.config.baud)):
