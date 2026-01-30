@@ -249,7 +249,15 @@ class SettingsInterface(ScrollArea):
             )
             return
 
-        self.comCard.checkBtn.setText("验证中...")
+        # 1. 显示顶部加载提示
+        self.stateTooltip = StateToolTip('正在验证连接', '请稍候...', self.window())
+        self.stateTooltip.move(
+            (self.window().width() - self.stateTooltip.width()) // 2, 
+            50
+        )
+        self.stateTooltip.show()
+
+        # 2. 仅禁用按钮，不改文字
         self.comCard.checkBtn.setEnabled(False)
         
         # 启动验证线程
@@ -258,6 +266,12 @@ class SettingsInterface(ScrollArea):
         self.checkThread.start()
 
     def __onConnectionChecked(self, is_connected, port):
+        # 1. 关闭 StateToolTip
+        if self.stateTooltip:
+            self.stateTooltip.setContent('验证完成')
+            self.stateTooltip.setState(True) # 设置为完成状态
+            self.stateTooltip = None 
+
         if is_connected:
             InfoBar.success(
                 title="连接成功",
@@ -273,7 +287,7 @@ class SettingsInterface(ScrollArea):
                 duration=3000
             )
             
-        self.comCard.checkBtn.setText("验证连接")
+        # 2. 仅恢复按钮可用，不重置文字
         self.comCard.checkBtn.setEnabled(True)
 
     def __onShowPortDetails(self):
