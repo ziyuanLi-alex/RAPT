@@ -37,20 +37,11 @@ class DiagnosticsInterface(QWidget):
 
         self.cardTitle = StrongBodyLabel("读写器连接检查", self.controlCard)
         
-        self.durationLabel = BodyLabel("持续时间 (秒):", self.controlCard)
-        self.durationSpinBox = SpinBox(self.controlCard)
-        self.durationSpinBox.setRange(1, 60)
-        self.durationSpinBox.setValue(3)
-        self.durationSpinBox.setSingleStep(1) 
-        self.durationSpinBox.setFixedWidth(100)
-
         self.startBtn = PrimaryPushButton("开始检查", self.controlCard)
-        self.startBtn.clicked.connect(self.startCheck)
+        self.startBtn.clicked.connect(self.toggleCheck)
 
         self.controlCardLayout.addWidget(self.cardTitle)
         self.controlCardLayout.addStretch(1)
-        self.controlCardLayout.addWidget(self.durationLabel)
-        self.controlCardLayout.addWidget(self.durationSpinBox)
         self.controlCardLayout.addWidget(self.startBtn)
 
         self.vBoxLayout.addWidget(self.controlCard)
@@ -69,21 +60,23 @@ class DiagnosticsInterface(QWidget):
         self.thread = None
         self.stateTooltip = None
 
-    def startCheck(self):
+    def toggleCheck(self):
         if self.thread and self.thread.isRunning():
+            # Stop
+            self.thread.stop()
+            self.startBtn.setEnabled(False)
+            self.startBtn.setText("正在停止...")
             return
 
+        # Start
         self.logDisplay.clear()
         self.logDisplay.appendPlainText(f"正在准备检查... (COM: {self.config.com}, Baud: {self.config.baud})")
         
-        self.startBtn.setEnabled(False)
-        self.durationSpinBox.setEnabled(False) # Disable spinbox during check
-        self.startBtn.setText("检查中...")
+        self.startBtn.setText("停止检查")
         
         self.thread = InventoryThread(
             self.config.com, 
             self.config.baud, 
-            duration=self.durationSpinBox.value(),
             parent=self
         )
         self.thread.epc_received.connect(self.onEpcReceived)
@@ -127,12 +120,10 @@ class DiagnosticsInterface(QWidget):
         )
         # Enable button
         self.startBtn.setEnabled(True)
-        self.durationSpinBox.setEnabled(True) # Re-enable spinbox
         self.startBtn.setText("开始检查")
 
     def onFinished(self):
         self.startBtn.setEnabled(True)
-        self.durationSpinBox.setEnabled(True) # Re-enable spinbox
         self.startBtn.setText("开始检查")
         if self.stateTooltip:
             self.stateTooltip.setContent('检查完成')

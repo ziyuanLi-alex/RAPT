@@ -40,11 +40,10 @@ class InventoryThread(QThread):
     finished_check = pyqtSignal()
     error_occurred = pyqtSignal(str)
 
-    def __init__(self, port, baud, duration=3, parent=None):
+    def __init__(self, port, baud, parent=None):
         super().__init__(parent)
         self.port = port
         self.baud = baud
-        self.duration = duration
         self.is_running = False
         self.client = None
 
@@ -65,8 +64,7 @@ class InventoryThread(QThread):
                                       inventoryMode=EnumG.InventoryMode_Inventory.value)
             
             if self.client.sendSynMsg(msg) == 0:
-                start_time = time.time()
-                while self.is_running and (time.time() - start_time < self.duration):
+                while self.is_running:
                     self.msleep(100)
                 
                 self.status_changed.emit("停止盘点...")
