@@ -1,13 +1,29 @@
 # -*- coding: utf-8 -*-
 from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QFileDialog
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QFileDialog, QApplication
 from qfluentwidgets import (
     ScrollArea, ExpandLayout, SettingCardGroup, SettingCard,
     ComboBoxSettingCard, SwitchSettingCard, PushSettingCard,
-    FluentIcon as FIF, InfoBar, LineEdit, SpinBox, ComboBox
+    FluentIcon as FIF, InfoBar, LineEdit, SpinBox, ComboBox, PrimaryPushButton,
+    StateToolTip, MessageBoxBase, SubtitleLabel, BodyLabel
 )
 
 from core.settings import ConfigManager
+from utils.serial_utils import get_serial_ports, check_reader_connection, get_serial_ports_details
+
+class PortDetailDialog(MessageBoxBase):
+    """ 显示串口详细信息的自定义对话框 """
+    def __init__(self, content, parent=None):
+        super().__init__(parent)
+        self.titleLabel = SubtitleLabel("串口详细信息", self)
+        self.contentLabel = BodyLabel(content, self)
+        
+        self.viewLayout.addWidget(self.titleLabel)
+        self.viewLayout.addWidget(self.contentLabel)
+        
+        self.yesButton.setText("关闭")
+        self.cancelButton.hide() # 隐藏取消按钮
+        self.widget.setMinimumWidth(350)
 
 class LineEditSettingCard(SettingCard):
     """ 带 LineEdit 的自定义设置卡片 """
@@ -31,7 +47,7 @@ class SpinBoxSettingCard(SettingCard):
         self.hBoxLayout.addSpacing(16)
 
 class CustomComboBoxSettingCard(SettingCard):
-    """ 带 ComboBox 的自定义设置卡片 (修复 AttributeError) """
+    """ 带 ComboBox 的自定义设置卡片"""
     
     def __init__(self, icon, title, content=None, texts=None, parent=None):
         super().__init__(icon, title, content, parent)
@@ -46,13 +62,45 @@ class CustomComboBoxSettingCard(SettingCard):
         self.comboBox.setCurrentText(str(value))
 
 
+class ComPortSettingCard(SettingCard):
+    """ 带下拉框和验证按钮的串口设置卡片 """
+    
+    def __init__(self, icon, title, content=None, parent=None):
+        super().__init__(icon, title, content, parent)
+        
+        # 验证连接按钮
+        self.checkBtn = PrimaryPushButton("验证连接", self)
+        self.checkBtn.setFixedWidth(100)
+        
+        # 详细信息按钮 (图标按钮或普通按钮)
+        self.detailBtn = PrimaryPushButton("详细信息", self)
+        self.detailBtn.setFixedWidth(100)
+
+        # 串口下拉框
+        self.comboBox = ComboBox(self)
+        self.comboBox.setFixedWidth(120)
+        
+        self.hBoxLayout.addWidget(self.checkBtn, 0, Qt.AlignmentFlag.AlignRight)
+        self.hBoxLayout.addSpacing(10)
+        self.hBoxLayout.addWidget(self.detailBtn, 0, Qt.AlignmentFlag.AlignRight)
+        self.hBoxLayout.addSpacing(10)
+        self.hBoxLayout.addWidget(self.comboBox, 0, Qt.AlignmentFlag.AlignRight)
+        self.hBoxLayout.addSpacing(16)
+
+    def setPorts(self, ports):
+        self.comboBox.clear()
+        self.comboBox.addItems(ports)
+        
+    def setValue(self, value):
+        self.comboBox.setCurrentText(str(value))
+
+
 class SettingsInterface(ScrollArea):
     """ 设置界面 """
 
     def __init__(self, parent=None):
         super().__init__(parent=parent)
         self.config = ConfigManager()
-        self.config.load()
         
         self.scrollWidget = QWidget()
         self.expandLayout = ExpandLayout(self.scrollWidget)
@@ -72,20 +120,31 @@ class SettingsInterface(ScrollArea):
         # === 1. 设备连接组 ===
         self.deviceGroup = SettingCardGroup("设备连接", self.scrollWidget)
         
-        # COM口 (自定义 LineEdit 卡片)
-        self.comCard = LineEditSettingCard(
+        # COM口 (使用 ComPortSettingCard)
+        self.comCard = ComPortSettingCard(
             FIF.IOT, 
             "串口号 (COM Port)", 
-            "输入读写器连接的串口 (如 COM3)"
+            "选择读写器连接的串口"
         )
-        self.comCard.lineEdit.setText(self.config.com)
+        
+        # 扫描并填充初始端口
+        ports = get_serial_ports()
+        if not ports:
+            ports = ["无可用串口"]
+        self.comCard.setPorts(ports)
+        
+        # 如果配置中的串口不在列表中，也加进去
+        if self.config.com and self.config.com not in ports:
+            self.comCard.comboBox.addItem(self.config.com)
+            
+        self.comCard.setValue(self.config.com)
         
         # 波特率
         self.baudCard = CustomComboBoxSettingCard(
             FIF.SPEED_HIGH,
             "波特率 (Baud Rate)",
             "选择读写器通信波特率",
-            texts=['9600', '19200', '38400', '57600', '115200'],
+            texts=['9600', '19200', '38400', '57600', '115200', '230400', '460800'],
             parent=self.deviceGroup
         )
         # 设置当前选中项
@@ -143,7 +202,9 @@ class SettingsInterface(ScrollArea):
         # 绑定信号以实现自动保存
         
         # COM
-        self.comCard.lineEdit.editingFinished.connect(self.__onComChanged)
+        self.comCard.comboBox.currentTextChanged.connect(self.__onComChanged)
+        self.comCard.checkBtn.clicked.connect(self.__onCheckConnection)
+        self.comCard.detailBtn.clicked.connect(self.__onShowPortDetails)
         
         # Baud
         self.baudCard.comboBox.currentTextChanged.connect(self.__onBaudChanged)
@@ -159,12 +220,76 @@ class SettingsInterface(ScrollArea):
 
     # --- 槽函数 ---
 
-    def __onComChanged(self):
-        new_com = self.comCard.lineEdit.text().strip()
-        if new_com != self.config.com:
+    def __onComChanged(self, text):
+        new_com = text.strip()
+        if new_com != self.config.com and new_com != "无可用串口":
             self.config.com = new_com
             self.config.save()
             self.__showRestartTip()
+
+    def __onCheckConnection(self):
+        current_port = self.comCard.comboBox.currentText()
+        if not current_port or current_port == "无可用串口":
+            InfoBar.warning(
+                title="无法验证",
+                content="请先选择一个有效的串口。",
+                parent=self,
+                duration=3000
+            )
+            return
+
+        self.comCard.checkBtn.setText("验证中...")
+        self.comCard.checkBtn.setEnabled(False)
+        
+        # 验证指定端口
+        is_connected = check_reader_connection(current_port, self.config.baud)
+        
+        if is_connected:
+            InfoBar.success(
+                title="连接成功",
+                content=f"成功连接到设备: {current_port}",
+                parent=self,
+                duration=3000
+            )
+        else:
+            InfoBar.error(
+                title="连接失败",
+                content=f"无法连接到 {current_port}，请检查设备或波特率设置。",
+                parent=self,
+                duration=3000
+            )
+            
+        self.comCard.checkBtn.setText("验证连接")
+        self.comCard.checkBtn.setEnabled(True)
+
+    def __onShowPortDetails(self):
+        # 1. 显示加载提示
+        stateTooltip = StateToolTip('正在获取系统串口信息', '请稍候...', self)
+        stateTooltip.move(stateTooltip.getSuitablePos())
+        stateTooltip.show()
+
+        # 2. 获取数据 (模拟耗时，实际上可能很快)
+        QApplication.processEvents() # 让 UI 刷新出来
+        ports = get_serial_ports_details()
+        
+        # 3. 准备内容
+        content = "系统中未发现可用串口。"
+        if ports:
+            lines = []
+            for p in ports:
+                lines.append(f"设备: {p.device}")
+                lines.append(f"描述: {p.description}")
+                lines.append(f"硬件ID: {p.hwid}")
+                lines.append("-" * 30)
+            content = "\n".join(lines)
+
+        # 4. 关闭加载提示并显示对话框
+        stateTooltip.setContent('获取成功')
+        stateTooltip.setState(True)
+        stateTooltip = None # 销毁
+
+        w = PortDetailDialog(content, self)
+        w.exec()
 
     def __onBaudChanged(self, text):
         new_baud = int(text)

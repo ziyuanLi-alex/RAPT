@@ -85,7 +85,7 @@ class ConfigManager():
         # --- 数据处理配置 ---
         self.frame_duration_ms = 100
         self.output_dir = "data"
-        self.output_format = "h5"  # 新增：可选 "h5" | "csv" | "both"
+        self.output_format = "h5"  #  "h5" | "csv" | "both"
 
     def save(self):
         """保存配置到文件。"""
@@ -94,7 +94,7 @@ class ConfigManager():
             "com": self.com,
             "frame_duration_ms": self.frame_duration_ms,
             "output_dir": self.output_dir,
-            "output_format": self.output_format,  # ← 新增
+            "output_format": self.output_format,
         }
         try:
             with open(self.config_file, 'w', encoding='utf-8') as f:

@@ -27,7 +27,7 @@ if __name__ == '__main__':
 
     app = QApplication(sys.argv)
     
-    # 3. 设置应用图标
+    # 设置应用图标
     if os.path.exists(icon_path):
         app.setWindowIcon(QIcon(icon_path))
     else:

@@ -22,7 +22,7 @@ class HomeInterface(QWidget):
         self.setObjectName("homeInterface")
         
         self.config = ConfigManager()
-        self.config.load()
+        # self.config.load() # 移除此处的 load，避免重复加载
 
         # 主布局
         self.vBoxLayout = QVBoxLayout(self)

@@ -3,6 +3,8 @@ from PyQt6.QtWidgets import QApplication
 from PyQt6.QtGui import QIcon
 from PyQt6.QtCore import QSize
 import logging
+from core.settings import ConfigManager # 引入 ConfigManager
+
 logging.getLogger().setLevel(logging.WARNING)
 
 from qfluentwidgets import (
@@ -18,6 +20,11 @@ from .views import HomeInterface, CollectInterface, SettingsInterface
 class MainWindow(FluentWindow):
     def __init__(self):
         super().__init__()
+        
+        # 全局加载配置
+        self.config = ConfigManager()
+        self.config.load()
+        
         logging.info("MainWindow constructor called")
         self.initWindow()
         logging.info("MainWindow initialized")
@@ -33,15 +40,7 @@ class MainWindow(FluentWindow):
         # 2. 初始化导航栏
         self.initNavigation()
         logging.info("Navigation initialized")
-        
-        # 3. 启动画面 (可选，显得更专业)
-        # self.splashScreen = SplashScreen(self.windowIcon(), self)
-        # self.splashScreen.setIconSize(QSize(100, 100))
-        # self.show()
-        
-        # 模拟加载耗时操作，然后关闭启动画面
-        # QApplication.processEvents()
-        # self.splashScreen.finish()
+
 
     def initWindow(self):
         self.resize(1100, 750)
