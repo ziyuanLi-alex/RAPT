@@ -22,7 +22,7 @@ class HomeInterface(QWidget):
         self.setObjectName("homeInterface")
         
         self.config = ConfigManager()
-        # self.config.load() # 移除此处的 load，避免重复加载
+        # self.config.load() 
 
         # 主布局
         self.vBoxLayout = QVBoxLayout(self)
@@ -103,7 +103,7 @@ class HomeInterface(QWidget):
         self.readerStatusLabel.setText("正在连接...")
         
         # 重新加载配置，确保使用最新的 COM 口
-        self.config.load()
+        # self.config.load()
         
         # 为了不卡顿 UI，可以在这里使用 QThread，但为了简单演示，先同步执行(因为打开串口通常很快，除非超时)
         # 如果需要更丝滑的体验，建议放入 QThread

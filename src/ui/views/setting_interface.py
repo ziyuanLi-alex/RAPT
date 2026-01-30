@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QFileDialog, QApplication
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QFileDialog
 from qfluentwidgets import (
     ScrollArea, ExpandLayout, SettingCardGroup, SettingCard,
     ComboBoxSettingCard, SwitchSettingCard, PushSettingCard,
@@ -10,6 +10,7 @@ from qfluentwidgets import (
 
 from core.settings import ConfigManager
 from utils.serial_utils import get_serial_ports, check_reader_connection, get_serial_ports_details
+from ui.threads import PortListThread, PortScannerThread, ConnectionCheckThread
 
 class PortDetailDialog(MessageBoxBase):
     """ 显示串口详细信息的自定义对话框 """
@@ -68,18 +69,25 @@ class ComPortSettingCard(SettingCard):
     def __init__(self, icon, title, content=None, parent=None):
         super().__init__(icon, title, content, parent)
         
+        # 扫描按钮
+        self.scanBtn = PrimaryPushButton("扫描", self)
+        self.scanBtn.setFixedWidth(60)
+
         # 验证连接按钮
-        self.checkBtn = PrimaryPushButton("验证连接", self)
-        self.checkBtn.setFixedWidth(100)
+        self.checkBtn = PrimaryPushButton("验证", self)
+        self.checkBtn.setFixedWidth(60)
         
         # 详细信息按钮 (图标按钮或普通按钮)
-        self.detailBtn = PrimaryPushButton("详细信息", self)
-        self.detailBtn.setFixedWidth(100)
+        self.detailBtn = PrimaryPushButton("详情", self)
+        self.detailBtn.setFixedWidth(60)
 
         # 串口下拉框
         self.comboBox = ComboBox(self)
         self.comboBox.setFixedWidth(120)
+        self.comboBox.setPlaceholderText("请选择串口") 
         
+        self.hBoxLayout.addWidget(self.scanBtn, 0, Qt.AlignmentFlag.AlignRight)
+        self.hBoxLayout.addSpacing(10)
         self.hBoxLayout.addWidget(self.checkBtn, 0, Qt.AlignmentFlag.AlignRight)
         self.hBoxLayout.addSpacing(10)
         self.hBoxLayout.addWidget(self.detailBtn, 0, Qt.AlignmentFlag.AlignRight)
@@ -127,17 +135,14 @@ class SettingsInterface(ScrollArea):
             "选择读写器连接的串口"
         )
         
-        # 扫描并填充初始端口
-        ports = get_serial_ports()
-        if not ports:
-            ports = ["无可用串口"]
-        self.comCard.setPorts(ports)
+        # 初始化线程但不启动
+        self.listThread = PortListThread()
+        self.listThread.finished.connect(self.__onPortListLoaded)
         
-        # 如果配置中的串口不在列表中，也加进去
-        if self.config.com and self.config.com not in ports:
+        # 仅加载配置中的端口
+        if self.config.com:
             self.comCard.comboBox.addItem(self.config.com)
-            
-        self.comCard.setValue(self.config.com)
+            self.comCard.setValue(self.config.com)
         
         # 波特率
         self.baudCard = CustomComboBoxSettingCard(
@@ -203,6 +208,7 @@ class SettingsInterface(ScrollArea):
         
         # COM
         self.comCard.comboBox.currentTextChanged.connect(self.__onComChanged)
+        self.comCard.scanBtn.clicked.connect(self.__onScanPorts) # 绑定扫描按钮
         self.comCard.checkBtn.clicked.connect(self.__onCheckConnection)
         self.comCard.detailBtn.clicked.connect(self.__onShowPortDetails)
         
@@ -220,6 +226,11 @@ class SettingsInterface(ScrollArea):
 
     # --- 槽函数 ---
 
+    def __onScanPorts(self):
+        self.comCard.comboBox.clear()
+        self.comCard.comboBox.setPlaceholderText("扫描中...")
+        self.listThread.start()
+
     def __onComChanged(self, text):
         new_com = text.strip()
         if new_com != self.config.com and new_com != "无可用串口":
@@ -229,7 +240,7 @@ class SettingsInterface(ScrollArea):
 
     def __onCheckConnection(self):
         current_port = self.comCard.comboBox.currentText()
-        if not current_port or current_port == "无可用串口":
+        if not current_port or current_port == "无可用串口" or current_port == "扫描中...":
             InfoBar.warning(
                 title="无法验证",
                 content="请先选择一个有效的串口。",
@@ -241,20 +252,23 @@ class SettingsInterface(ScrollArea):
         self.comCard.checkBtn.setText("验证中...")
         self.comCard.checkBtn.setEnabled(False)
         
-        # 验证指定端口
-        is_connected = check_reader_connection(current_port, self.config.baud)
-        
+        # 启动验证线程
+        self.checkThread = ConnectionCheckThread(current_port, self.config.baud)
+        self.checkThread.finished.connect(self.__onConnectionChecked)
+        self.checkThread.start()
+
+    def __onConnectionChecked(self, is_connected, port):
         if is_connected:
             InfoBar.success(
                 title="连接成功",
-                content=f"成功连接到设备: {current_port}",
+                content=f"成功连接到设备: {port}",
                 parent=self,
                 duration=3000
             )
         else:
             InfoBar.error(
                 title="连接失败",
-                content=f"无法连接到 {current_port}，请检查设备或波特率设置。",
+                content=f"无法连接到 {port}，请检查设备或波特率设置。",
                 parent=self,
                 duration=3000
             )
@@ -264,14 +278,19 @@ class SettingsInterface(ScrollArea):
 
     def __onShowPortDetails(self):
         # 1. 显示加载提示
-        stateTooltip = StateToolTip('正在获取系统串口信息', '请稍候...', self)
-        stateTooltip.move(stateTooltip.getSuitablePos())
-        stateTooltip.show()
+        self.stateTooltip = StateToolTip('正在获取系统串口信息', '请稍候...', self.window())
+        self.stateTooltip.move(
+            (self.window().width() - self.stateTooltip.width()) // 2, 
+            50
+        )
+        self.stateTooltip.show()
 
-        # 2. 获取数据 (模拟耗时，实际上可能很快)
-        QApplication.processEvents() # 让 UI 刷新出来
-        ports = get_serial_ports_details()
-        
+        # 2. 启动扫描线程
+        self.scannerThread = PortScannerThread()
+        self.scannerThread.finished.connect(self.__onScanFinished)
+        self.scannerThread.start()
+
+    def __onScanFinished(self, ports):
         # 3. 准备内容
         content = "系统中未发现可用串口。"
         if ports:
@@ -284,12 +303,24 @@ class SettingsInterface(ScrollArea):
             content = "\n".join(lines)
 
         # 4. 关闭加载提示并显示对话框
-        stateTooltip.setContent('获取成功')
-        stateTooltip.setState(True)
-        stateTooltip = None # 销毁
+        if self.stateTooltip:
+            self.stateTooltip.setContent('获取成功')
+            self.stateTooltip.setState(True)
+            self.stateTooltip = None 
 
         w = PortDetailDialog(content, self)
         w.exec()
+
+    def __onPortListLoaded(self, ports):
+        if not ports:
+            ports = ["无可用串口"]
+        self.comCard.setPorts(ports)
+        
+        # 如果配置中的串口不在列表中，也加进去
+        if self.config.com and self.config.com not in ports:
+            self.comCard.comboBox.addItem(self.config.com)
+            
+        self.comCard.setValue(self.config.com)
 
     def __onBaudChanged(self, text):
         new_baud = int(text)

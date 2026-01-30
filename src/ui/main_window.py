@@ -35,7 +35,6 @@ class MainWindow(FluentWindow):
         self.homeInterface = HomeInterface(self)
         self.collectInterface = CollectInterface(self)
         self.settingsInterface = SettingsInterface(self)
-        # self.tagsInterface = TagsInterface(self)
 
         # 2. 初始化导航栏
         self.initNavigation()
