@@ -54,4 +54,11 @@ def run():
             break
     
 if __name__ == "__main__":
-    run()
+    try:
+        run()
+    except Exception as e:
+        # Log the exception or print a user-friendly error
+        print(f"\nAn unexpected error occurred: {e}")
+    finally:
+        # This will run whether the script succeeds or fails
+        input("\nPress ENTER to exit...") 
