@@ -1,8 +1,9 @@
+import os
 from PyQt6.QtWidgets import QApplication
 from PyQt6.QtGui import QIcon
 from PyQt6.QtCore import QSize
 import logging
-logging.getLogger().setLevel(logging.INFO)
+logging.getLogger().setLevel(logging.WARNING)
 
 from qfluentwidgets import (
     FluentWindow, 
@@ -42,11 +43,8 @@ class MainWindow(FluentWindow):
 
     def initWindow(self):
         self.resize(1100, 750)
-        self.setWindowTitle('RAPT')
-        # 设置窗口图标，建议找一个 .ico 文件
-        # self.setWindowIcon(QIcon('resources/icon.png')) 
+        self.setWindowTitle('RAPT - RFID Analysis & Pose Toolkit')
         
-        # 居中显示
         desktop = QApplication.primaryScreen().availableGeometry()
         w, h = desktop.width(), desktop.height()
         self.move(w//2 - self.width()//2, h//2 - self.height()//2)
