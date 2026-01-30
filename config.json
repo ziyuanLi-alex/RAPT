@@ -1,6 +1,7 @@
 {
     "baud": 115200,
-    "com": "com6",
+    "com": "com3",
     "frame_duration_ms": 100,
-    "output_dir": "data"
+    "output_dir": "data",
+    "output_format": "h5"
 }
