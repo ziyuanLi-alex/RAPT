@@ -161,7 +161,6 @@ def run() -> None:
             else:
                 continue
 
-        # --- (已修改) 在调用时传入 binding_manager ---
         if choice == "1. 新采集模式（线形/点形）":
             try:
                 collect_menu_new(config, data_collector, console, binding_manager)

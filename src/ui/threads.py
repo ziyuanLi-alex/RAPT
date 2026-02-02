@@ -1,7 +1,11 @@
 # -*- coding: utf-8 -*-
 from PyQt6.QtCore import QThread, pyqtSignal
+from PyQt6.QtGui import QImage
 from utils.serial_utils import get_serial_ports, get_serial_ports_details, check_reader_connection
 import time
+import cv2
+import numpy as np
+from pathlib import Path
 from uhf.reader import GClient, MsgBaseInventoryEpc, MsgBaseStop, EnumG, LogBaseEpcInfo
 
 class PortListThread(QThread):
@@ -139,11 +143,13 @@ class ContinuousCollectThread(QThread):
     saved = pyqtSignal(str) # file_path
     error = pyqtSignal(str)
     
-    def __init__(self, data_collector, action_name, duration=0, parent=None):
+    def __init__(self, data_collector, action_name, duration=0, parent=None, mode="binned", sync_barrier=None):
         super().__init__(parent)
         self.dc = data_collector
         self.action_name = action_name
         self.duration = duration
+        self.mode = mode
+        self.sync_barrier = sync_barrier
         self.is_running = False
 
     def run(self):
@@ -159,8 +165,18 @@ class ContinuousCollectThread(QThread):
 
             stream = self.dc.stream()
             
+            # Wait for sync barrier if provided
+            if self.sync_barrier:
+                try:
+                    self.sync_barrier.wait(timeout=10.0) # 10s timeout for safety
+                except Exception as e:
+                    self.error.emit(f"同步启动超时/失败: {e}")
+                    self.dc.stop_stream()
+                    return
+            
             start_t = time.time()
             buckets = defaultdict(lambda: defaultdict(list))
+            raw_data = [] # For mode="raw": list of (timestamp, epc, rssi)
             frame_span = 0.1
             frame_count = 0
             
@@ -202,10 +218,16 @@ class ContinuousCollectThread(QThread):
                 epc = str(item["epc"])
                 rssi = float(item.get("rssi", item.get("intensity", 0)))
                 
-                idx = int((ts - start_t) / frame_span)
-                if idx < 0: idx = 0
-                buckets[epc][idx].append(rssi)
                 frame_count += 1
+                
+                if self.mode == "raw":
+                    # Raw mode: log directly
+                    raw_data.append((ts, epc, rssi))
+                else:
+                    # Binned mode: aggregate
+                    idx = int((ts - start_t) / frame_span)
+                    if idx < 0: idx = 0
+                    buckets[epc][idx].append(rssi)
                 
                 # 更新 UI (降频)
                 if frame_count % 5 == 0:
@@ -220,66 +242,104 @@ class ContinuousCollectThread(QThread):
             feeder_thread.join(timeout=1.0)
             
             # 保存数据
-            if not buckets:
-                self.error.emit("未采集到数据")
-                return
-
-            # 数据后处理
-            total_span = elapsed
-            end_idx = max(1, int(total_span / frame_span))
-            epc_order = list(buckets.keys())
-            per_epc_rows = {}
-            
-            for epc in epc_order:
-                rows = []
-                table = buckets[epc]
-                for fidx in range(end_idx):
-                    vals = table.get(fidx, [])
-                    t_rel = round((fidx + 1) * frame_span, 6)
-                    if vals:
-                        sv = sorted(vals)
-                        n = len(sv)
-                        median = sv[n // 2] if n % 2 == 1 else 0.5 * (sv[n // 2 - 1] + sv[n // 2])
-                        cnt, vmax, mean = n, max(vals), sum(vals) / n
-                    else:
-                        median = cnt = vmax = mean = 0.0
-                    rows.append((t_rel, median, cnt, vmax, mean))
-                per_epc_rows[epc] = rows
-
-            # 生成文件路径
-            today = datetime.now().strftime("%Y%m%d")
-            out_dir = Path(self.dc.config.output_dir) / today / "continuous_mode"
-            out_dir.mkdir(parents=True, exist_ok=True)
-            
-            parts = ["continuous"]
-            if self.duration > 0: parts.append("timed")
-            if self.action_name: parts.append(self.action_name.strip())
-            base_name = "_".join(parts)
-            
-            file_path = out_dir / f"{base_name}.csv"
-            # 简单去重命名逻辑
-            i = 2
-            while file_path.exists():
-                file_path = out_dir / f"{base_name}_v{i}.csv"
-                i += 1
-            
-            # 写入 CSV
-            with open(file_path, "w", newline="", encoding="utf-8-sig") as f:
-                w = csv.writer(f)
-                # 简单表头，不依赖 BindingManager (UI 层可处理展示，文件保留原始数据)
-                header_row = []
-                for epc in epc_order:
-                    header_row.extend([f"{epc}_Time", f"{epc}_Median", f"{epc}_Count", f"{epc}_Max", f"{epc}_Mean", ""])
-                w.writerow(header_row)
+            if self.mode == "raw":
+                if not raw_data:
+                    self.error.emit("未采集到数据")
+                    return
                 
-                for r in range(end_idx):
-                    row = []
+                today = datetime.now().strftime("%Y%m%d")
+                out_dir = Path(self.dc.config.output_dir) / today / "raw_mode"
+                out_dir.mkdir(parents=True, exist_ok=True)
+                
+                base_name = f"raw_{self.action_name}" if self.action_name else "raw_data"
+                file_path = out_dir / f"{base_name}.csv"
+                i = 2
+                while file_path.exists():
+                    file_path = out_dir / f"{base_name}_v{i}.csv"
+                    i += 1
+                
+                with open(file_path, "w", newline="", encoding="utf-8-sig") as f:
+                    w = csv.writer(f)
+                    w.writerow(["Timestamp", "EPC", "RSSI", "System_ISO_Time"])
+                    
+                    # Add ISO time to raw data
+                    final_rows = []
+                    for row in raw_data:
+                        ts_val = row[0]
+                        iso_time = datetime.fromtimestamp(ts_val).strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
+                        final_rows.append(list(row) + [iso_time])
+                        
+                    w.writerows(final_rows)
+                
+                self.saved.emit(str(file_path))
+                
+            else:
+                # Original Binned Logic
+                if not buckets:
+                    self.error.emit("未采集到数据")
+                    return
+
+                # 数据后处理
+                total_span = elapsed
+                end_idx = max(1, int(total_span / frame_span))
+                epc_order = list(buckets.keys())
+                per_epc_rows = {}
+                
+                for epc in epc_order:
+                    rows = []
+                    table = buckets[epc]
+                    for fidx in range(end_idx):
+                        vals = table.get(fidx, [])
+                        t_rel = round((fidx + 1) * frame_span, 6)
+                        if vals:
+                            sv = sorted(vals)
+                            n = len(sv)
+                            median = sv[n // 2] if n % 2 == 1 else 0.5 * (sv[n // 2 - 1] + sv[n // 2])
+                            cnt, vmax, mean = n, max(vals), sum(vals) / n
+                        else:
+                            median = cnt = vmax = mean = 0.0
+                        rows.append((t_rel, median, cnt, vmax, mean))
+                    per_epc_rows[epc] = rows
+                
+                # 生成文件路径
+                today = datetime.now().strftime("%Y%m%d")
+                out_dir = Path(self.dc.config.output_dir) / today / "continuous_mode"
+                out_dir.mkdir(parents=True, exist_ok=True)
+                
+                parts = ["continuous"]
+                if self.duration > 0: parts.append("timed")
+                if self.action_name: parts.append(self.action_name.strip())
+                base_name = "_".join(parts)
+                
+                file_path = out_dir / f"{base_name}.csv"
+                # 简单去重命名逻辑
+                i = 2
+                while file_path.exists():
+                    file_path = out_dir / f"{base_name}_v{i}.csv"
+                    i += 1
+                
+                # 写入 CSV
+                with open(file_path, "w", newline="", encoding="utf-8-sig") as f:
+                    w = csv.writer(f)
+                    # 简单表头，不依赖 BindingManager (UI 层可处理展示，文件保留原始数据)
+                    header_row = ["Bin_Start_System_Time"]
                     for epc in epc_order:
-                        row.extend(list(per_epc_rows[epc][r]))
-                        row.append("") # Spacer
-                    w.writerow(row)
-            
-            self.saved.emit(str(file_path))
+                        header_row.extend([f"{epc}_Time", f"{epc}_Median", f"{epc}_Count", f"{epc}_Max", f"{epc}_Mean", ""])
+                    w.writerow(header_row)
+                    
+                    for r in range(end_idx):
+                        row = []
+                        # Calculate Bin System Time
+                        bin_start_ts = start_t + (r * frame_span)
+                        bin_time_str = datetime.fromtimestamp(bin_start_ts).strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
+                        row.append(bin_time_str)
+                        
+                        for epc in epc_order:
+                            row.extend(list(per_epc_rows[epc][r]))
+                            row.append("") # Spacer
+                        w.writerow(row)
+                
+                self.saved.emit(str(file_path))
             
         except Exception as e:
             self.error.emit(str(e))
@@ -289,6 +349,144 @@ class ContinuousCollectThread(QThread):
     def stop(self):
         self.is_running = False
 
+
+class VideoThread(QThread):
+    """ 视频采集线程 """
+    frame_captured = pyqtSignal(QImage, float) # image, timestamp
+    saved = pyqtSignal(str, str) # video_path, meta_path
+    error = pyqtSignal(str)
+
+    def __init__(self, camera_id=0, action_name="video", output_dir=".", parent=None, preview_only=False, sync_barrier=None):
+        super().__init__(parent)
+        self.camera_id = camera_id
+        self.action_name = action_name
+        self.output_dir = Path(output_dir)
+        self.preview_only = preview_only
+        self.sync_barrier = sync_barrier
+        self.is_running = False
+
+    def run(self):
+        self.is_running = True
+        cap = None
+        out = None
+        meta_file = None
+        
+        try:
+            # Setup Paths (only if not preview_only)
+            video_path = None
+            meta_path = None
+            
+            if not self.preview_only:
+                today = time.strftime("%Y%m%d")
+                save_dir = self.output_dir / today / "video_mode"
+                save_dir.mkdir(parents=True, exist_ok=True)
+                
+                base_name = f"video_{self.action_name}" if self.action_name else "video_capture"
+                video_path = save_dir / f"{base_name}.avi"
+                meta_path = save_dir / f"{base_name}_meta.csv"
+                
+                # Uniquify
+                i = 2
+                while video_path.exists():
+                    video_path = save_dir / f"{base_name}_v{i}.avi"
+                    meta_path = save_dir / f"{base_name}_v{i}_meta.csv"
+                    i += 1
+            
+            # Setup Camera
+            import os
+            # Determine priority backends
+            backends = []
+            if os.name == 'nt':
+                backends = [cv2.CAP_DSHOW, cv2.CAP_MSMF, cv2.CAP_ANY]
+            else:
+                backends = [cv2.CAP_ANY]
+            
+            # Ensure camera_id is valid type
+            cam_id = self.camera_id
+            if cam_id is None:
+                cam_id = 0
+            elif isinstance(cam_id, str) and cam_id.isdigit():
+                cam_id = int(cam_id)
+            
+            # Try to open with prioritized backends
+            cap = None
+            for backend in backends:
+                try:
+                    temp_cap = cv2.VideoCapture(cam_id, backend)
+                    if temp_cap.isOpened():
+                        cap = temp_cap
+                        break
+                    else:
+                        temp_cap.release()
+                except:
+                    pass
+            
+            if cap is None or not cap.isOpened():
+                self.error.emit(f"无法打开摄像头 {self.camera_id}")
+                return
+            
+            # Setup Writer (only if not preview_only)
+            if not self.preview_only:
+                width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+                height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+                fps = 30.0 # Default assumption
+                
+                fourcc = cv2.VideoWriter_fourcc(*'MJPG')
+                out = cv2.VideoWriter(str(video_path), fourcc, fps, (width, height))
+                
+                # Setup Metadata CSV
+                import csv
+                from datetime import datetime
+                f_meta = open(meta_path, "w", newline="", encoding="utf-8")
+                w_meta = csv.writer(f_meta)
+                w_meta.writerow(["FrameIndex", "Timestamp", "System_ISO_Time"])
+            
+            # Wait for sync barrier if provided (only for capture mode)
+            if not self.preview_only and self.sync_barrier:
+                try:
+                    self.sync_barrier.wait(timeout=10.0)
+                except Exception as e:
+                    self.error.emit(f"同步启动超时/失败: {e}")
+                    return
+            
+            frame_idx = 0
+            
+            while self.is_running:
+                ret, frame = cap.read()
+                if not ret:
+                    break
+                    
+                ts = time.time()
+                
+                # Write to file (only if not preview_only)
+                if not self.preview_only:
+                    out.write(frame)
+                    sys_time_str = datetime.fromtimestamp(ts).strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
+                    w_meta.writerow([frame_idx, ts, sys_time_str])
+                    frame_idx += 1
+                
+                # Convert to QImage for UI
+                rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                h, w, ch = rgb_frame.shape
+                bytes_per_line = ch * w
+                qt_image = QImage(rgb_frame.data, w, h, bytes_per_line, QImage.Format.Format_RGB888)
+                
+                self.frame_captured.emit(qt_image, ts)
+                
+            # Cleanup
+            if not self.preview_only:
+                f_meta.close()
+                self.saved.emit(str(video_path), str(meta_path))
+            
+        except Exception as e:
+            self.error.emit(str(e))
+        finally:
+            if cap: cap.release()
+            if out: out.release()
+            if meta_file: meta_file.close()
+
+    def stop(self):
+        self.is_running = False
 
 class SingleShotCollectThread(QThread):
     """ 单次采集线程 (对应原点形模式的一次 Trigger) """
