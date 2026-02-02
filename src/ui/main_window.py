@@ -14,7 +14,7 @@ from qfluentwidgets import (
     SplashScreen
 )
 
-from .views import HomeInterface, CollectInterface, SettingsInterface, DiagnosticsInterface
+from .views import HomeInterface, CollectInterface, SettingsInterface, DiagnosticsInterface, TagsInterface
 
 
 class MainWindow(FluentWindow):
@@ -34,6 +34,7 @@ class MainWindow(FluentWindow):
         # 1. 初始化子页面
         self.homeInterface = HomeInterface(self)
         self.collectInterface = CollectInterface(self)
+        self.tagsInterface = TagsInterface(self)
         self.diagnosticsInterface = DiagnosticsInterface(self)
         self.settingsInterface = SettingsInterface(self)
 
@@ -71,12 +72,12 @@ class MainWindow(FluentWindow):
         logging.info("Collect interface added to navigation")  
 
         # 标签管理 (对应原 CLI 的 "标签绑定管理")
-        # self.addSubInterface(
-        #     self.tagsInterface,
-        #     FIF.TAG,
-        #     "标签管理 (Tags)",
-        #     NavigationItemPosition.TOP
-        # )
+        self.addSubInterface(
+            self.tagsInterface,
+            FIF.TAG,
+            "标签管理 (Tags)",
+            NavigationItemPosition.TOP
+        )
 
         # --- 底部导航区域 ---
         

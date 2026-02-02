@@ -53,6 +53,7 @@ class DiagnosticsInterface(QWidget):
         # Use a monospace font
         font = self.logDisplay.font()
         font.setFamily("Consolas")
+        font.setPointSize(10)
         self.logDisplay.setFont(font)
         
         self.vBoxLayout.addWidget(self.logDisplay)

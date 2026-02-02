@@ -40,6 +40,7 @@ class CollectInterface(QWidget):
         self.pivot = SegmentedWidget(self)
         self.pivot.addItem("Continuous", "持续采集")
         self.pivot.addItem("SingleShot", "单次采集")
+        self.pivot.setCurrentItem("Continuous")
         self.pivot.currentItemChanged.connect(self.onPivotChanged)
         
         self.headerLayout.addWidget(self.titleLabel)
@@ -114,6 +115,7 @@ class ContinuousInterface(QWidget):
         self.logDisplay.setPlaceholderText("等待开始...")
         font = self.logDisplay.font()
         font.setFamily("Consolas")
+        font.setPointSize(10)
         self.logDisplay.setFont(font)
         
         self.vBoxLayout.addWidget(self.logDisplay)

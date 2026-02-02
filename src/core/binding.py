@@ -18,6 +18,14 @@ class BindingManager():
         self.bind_dict[epc] = name
         self.save_binding()
 
+    def remove_binding(self, epc: str) -> bool:
+        """移除标签绑定。如果存在则删除并保存，返回 True；否则返回 False。"""
+        if epc in self.bind_dict:
+            del self.bind_dict[epc]
+            self.save_binding()
+            return True
+        return False
+
     def check_bind(self, epc: str) -> bool:
         """(已修改) 检查标签是否绑定，此版本不再打印信息。"""
         return epc in self.bind_dict

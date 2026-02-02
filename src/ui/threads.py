@@ -89,6 +89,50 @@ class InventoryThread(QThread):
     def stop(self):
         self.is_running = False
 
+class TagScanThread(QThread):
+    """ 扫描附近标签线程 (用于绑定管理) """
+    tags_found = pyqtSignal(list) # [epc1, epc2, ...]
+    error = pyqtSignal(str)
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.duration = 1.0 # 默认扫描1秒
+
+    def run(self):
+        try:
+            client = GClient()
+            found_epcs = set()
+            
+            def on_epc(epc_info):
+                if epc_info.result == 0:
+                    found_epcs.add(epc_info.epc)
+            
+            # 使用默认配置尝试打开串口
+            # 这里我们无法直接获取 config，所以假设外部已经配好了，或者需要从 ConfigManager 获取
+            # 为了简单起见，我们假设调用方确保串口可用，或者这里使用 ConfigManager
+            from core.settings import ConfigManager
+            config = ConfigManager()
+            
+            if not client.openSerial((config.com, config.baud)):
+                self.error.emit(f"无法打开串口 {config.com}")
+                return
+                
+            client.callEpcInfo = on_epc
+            
+            msg = MsgBaseInventoryEpc(antennaEnable=EnumG.AntennaNo_1.value,
+                                      inventoryMode=EnumG.InventoryMode_Inventory.value)
+            
+            if client.sendSynMsg(msg) == 0:
+                time.sleep(self.duration)
+                stop = MsgBaseStop()
+                client.sendSynMsg(stop)
+                
+            client.close()
+            self.tags_found.emit(list(found_epcs))
+            
+        except Exception as e:
+            self.error.emit(str(e))
+
 class ContinuousCollectThread(QThread):
     """ 持续采集线程 (对应原线形模式) """
     progress_update = pyqtSignal(dict) # {time, frame_count, last_epc}
