@@ -4,3 +4,4 @@ binding.json
 
 build/*
 dist/*
+.trae/*
