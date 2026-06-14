@@ -102,6 +102,8 @@ class ConfigManager():
         self.frame_duration_ms = 100
         self.output_dir = str(app_dir() / "data")
         self.output_format = "h5"  #  "h5" | "csv" | "both"
+        self.skellycam_base_url = "http://localhost:53117"
+        self.skellycam_recording_dir = r"H:\lib\Skellycam_recording"
 
     def save(self):
         """保存配置到文件。"""
@@ -112,6 +114,8 @@ class ConfigManager():
             "frame_duration_ms": self.frame_duration_ms,
             "output_dir": self.output_dir,
             "output_format": self.output_format,
+            "skellycam_base_url": self.skellycam_base_url,
+            "skellycam_recording_dir": self.skellycam_recording_dir,
         }
         try:
             with open(self.config_file, 'w', encoding='utf-8') as f:
@@ -131,6 +135,12 @@ class ConfigManager():
                     self.frame_duration_ms = config_data.get("frame_duration_ms", self.frame_duration_ms)
                     self.output_dir = str(resolve_runtime_path(config_data.get("output_dir", self.output_dir)))
                     self.output_format = config_data.get("output_format", getattr(self, "output_format", "h5"))
+                    self.skellycam_base_url = config_data.get(
+                        "skellycam_base_url", self.skellycam_base_url
+                    )
+                    self.skellycam_recording_dir = config_data.get(
+                        "skellycam_recording_dir", self.skellycam_recording_dir
+                    )
                 if load_path != self.config_file:
                     self.save()
                 print(f"已加载配置: COM口={self.com}, 波特率={self.baud}")

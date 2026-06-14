@@ -10,6 +10,7 @@ pyinstaller
 pyserial==3.4
 questionary==2.1.0
 rich==14.0.0
+requests
 uhfReaderApi==1.1.1
 wcwidth==0.2.13
 PyQt6

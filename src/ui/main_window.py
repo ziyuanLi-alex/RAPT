@@ -14,7 +14,15 @@ from qfluentwidgets import (
     SplashScreen
 )
 
-from .views import HomeInterface, CollectInterface, SettingsInterface, DiagnosticsInterface, TagsInterface, VideoInterface
+from .views import (
+    HomeInterface,
+    CollectInterface,
+    SettingsInterface,
+    DiagnosticsInterface,
+    TagsInterface,
+    VideoInterface,
+    IntegratedInterface,
+)
 
 
 class MainWindow(FluentWindow):
@@ -36,6 +44,7 @@ class MainWindow(FluentWindow):
         self.collectInterface = CollectInterface(self)
         self.tagsInterface = TagsInterface(self)
         self.videoInterface = VideoInterface(self)
+        self.integratedInterface = IntegratedInterface(self)
         self.diagnosticsInterface = DiagnosticsInterface(self)
         self.settingsInterface = SettingsInterface(self)
 
@@ -84,6 +93,13 @@ class MainWindow(FluentWindow):
             self.videoInterface,
             FIF.CAMERA,
             "视频采集 (Video)",
+            NavigationItemPosition.TOP
+        )
+
+        self.addSubInterface(
+            self.integratedInterface,
+            FIF.PLAY,
+            "集成采集 (Integrated)",
             NavigationItemPosition.TOP
         )
 

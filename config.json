@@ -3,5 +3,7 @@
     "com": "COM3",
     "frame_duration_ms": 100,
     "output_dir": "data",
-    "output_format": "h5"
+    "output_format": "h5",
+    "skellycam_base_url": "http://localhost:53117",
+    "skellycam_recording_dir": "H:\\lib\\Skellycam_recording"
 }
