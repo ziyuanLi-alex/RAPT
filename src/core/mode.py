@@ -5,7 +5,10 @@ from collections import defaultdict
 from typing import Dict, Iterable, List, Optional
 from pathlib import Path
 from datetime import datetime
-from binding import BindingManager
+try:
+    from .binding import BindingManager
+except ImportError:
+    from binding import BindingManager
 import tkinter as tk
 from tkinter import ttk
 

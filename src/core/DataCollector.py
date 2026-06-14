@@ -10,7 +10,10 @@ import questionary
 import csv
 import datetime
 import contextlib, io
-from .settings import ConfigManager
+try:
+    from .settings import ConfigManager
+except ImportError:
+    from settings import ConfigManager
 
 
 class DataCollector:

@@ -1,5 +1,7 @@
 data/*
 *.pyc
+*.pyc.*
+__pycache__/
 binding.json
 
 build/*

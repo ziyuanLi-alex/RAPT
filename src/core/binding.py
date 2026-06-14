@@ -2,7 +2,13 @@ import questionary
 from uhf.reader import *
 from time import sleep
 import json
+from pathlib import Path
 from rich.console import Console  # 引入rich，让打印更好看
+
+try:
+    from .paths import app_dir, bundled_default_path
+except ImportError:
+    from paths import app_dir, bundled_default_path
 
 
 class BindingManager():
@@ -34,19 +40,25 @@ class BindingManager():
         """获取标签绑定名称。如果未绑定，安全地返回EPC本身。"""
         return self.bind_dict.get(epc, epc)
 
-    def load_binding(self, path: str = "binding.json"):
+    def load_binding(self, path: str | None = None):
         """从文件加载绑定信息。"""
+        path = app_dir() / "binding.json" if path is None else Path(path)
+        load_path = path if path.exists() else bundled_default_path("binding.json")
         try:
-            with open(path, "r", encoding='utf-8') as f:
+            with open(load_path, "r", encoding='utf-8') as f:
                 self.bind_dict = json.load(f)
+            if load_path != path:
+                self.save_binding(path)
         except FileNotFoundError:
             self.console.print(f"文件 {path} 未找到，跳过加载绑定信息。")
         except json.JSONDecodeError:
             self.console.print(f"文件 {path} 格式错误，跳过加载绑定信息。")
 
-    def save_binding(self, path: str = "binding.json"):
+    def save_binding(self, path: str | None = None):
         """将绑定信息保存到文件。"""
+        path = app_dir() / "binding.json" if path is None else Path(path)
         try:
+            path.parent.mkdir(parents=True, exist_ok=True)
             with open(path, "w", encoding='utf-8') as f:
                 json.dump(self.bind_dict, f, indent=4, ensure_ascii=False)
         except Exception as e:
