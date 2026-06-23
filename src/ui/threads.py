@@ -7,6 +7,9 @@ import cv2
 import numpy as np
 from pathlib import Path
 from uhf.reader import GClient, MsgBaseInventoryEpc, MsgBaseStop, EnumG, LogBaseEpcInfo
+from core.DataCollector import DataCollector
+from core.integrated_session import IntegratedSessionController
+from core import skellycam_client
 
 class PortListThread(QThread):
     """ 获取简单串口列表的线程 """
@@ -348,6 +351,158 @@ class ContinuousCollectThread(QThread):
 
     def stop(self):
         self.is_running = False
+
+
+class SkellyCamHealthThread(QThread):
+    finished = pyqtSignal(bool, str)
+
+    def __init__(self, base_url, parent=None):
+        super().__init__(parent)
+        self.base_url = base_url
+
+    def run(self):
+        try:
+            result = skellycam_client.check_health(self.base_url)
+            self.finished.emit(True, result.get("response_text", "OK"))
+        except Exception as e:
+            self.finished.emit(False, str(e))
+
+
+class IntegratedRecordingThread(QThread):
+    started_info = pyqtSignal(dict)
+    progress_update = pyqtSignal(dict)
+    saved = pyqtSignal(str)
+    error = pyqtSignal(str)
+
+    def __init__(self, config, subject_id, action, trial_id, notes="", parent=None):
+        super().__init__(parent)
+        self.config = config
+        self.subject_id = subject_id
+        self.action = action
+        self.trial_id = trial_id
+        self.notes = notes
+        self.is_running = False
+        self.controller = IntegratedSessionController(config, skellycam_client)
+        self.data_collector = DataCollector(config)
+        self._skellycam_started = False
+        self._had_error = False
+
+    def run(self):
+        self.is_running = True
+        feeder_thread = None
+        try:
+            from queue import Empty, Queue
+            import threading
+
+            skellycam_client.check_health(self.config.skellycam_base_url)
+            self.controller.prepare(self.subject_id, self.action, self.trial_id, self.notes)
+            self.controller.metadata["rfid_start_wall_time_ns"] = time.time_ns()
+            self.controller.metadata["rfid_start_perf_counter_ns"] = time.perf_counter_ns()
+
+            stream = self.data_collector.stream()
+            q = Queue(maxsize=10000)
+            stop_sentinel = object()
+
+            def feeder():
+                try:
+                    for raw in stream:
+                        q.put(raw)
+                        if not self.is_running:
+                            break
+                except Exception as e:
+                    q.put({"__error__": str(e)})
+                finally:
+                    q.put(stop_sentinel)
+
+            feeder_thread = threading.Thread(target=feeder, daemon=True)
+            feeder_thread.start()
+
+            start_result = self.controller.start_skellycam()
+            self._skellycam_started = True
+            self.started_info.emit(
+                {
+                    "session_id": self.controller.files.session_id,
+                    "session_dir": str(self.controller.files.session_dir),
+                    "recording_name": self.controller.metadata["recording_name"],
+                    "skellycam_response": start_result.get("response_text", ""),
+                }
+            )
+
+            read_count = 0
+            last_epc = ""
+            while self.is_running:
+                try:
+                    item = q.get(timeout=0.1)
+                except Empty:
+                    continue
+
+                if item is stop_sentinel:
+                    break
+                if "__error__" in item:
+                    self.error.emit(item["__error__"])
+                    break
+
+                host_wall_time_ns = time.time_ns()
+                host_perf_counter_ns = time.perf_counter_ns()
+                self.controller.writer.write_read(
+                    self.controller.files.session_id,
+                    self.trial_id,
+                    item,
+                    host_wall_time_ns,
+                    host_perf_counter_ns,
+                )
+                read_count += 1
+                last_epc = str(item.get("epc", ""))
+                if read_count % 5 == 0:
+                    self.progress_update.emit({"read_count": read_count, "last_epc": last_epc})
+
+        except Exception as e:
+            self._had_error = True
+            if self.controller.files:
+                self.controller.metadata["error"] = str(e)
+            self.error.emit(str(e))
+        finally:
+            self.is_running = False
+            stop_result = None
+            if self._skellycam_started:
+                try:
+                    stop_result = self.controller.stop_skellycam()
+                except Exception as e:
+                    self.controller.metadata["skellycam_stop_error"] = str(e)
+
+            try:
+                self.data_collector.stop_stream()
+            except Exception:
+                pass
+            if feeder_thread:
+                feeder_thread.join(timeout=1.0)
+
+            if self.controller.files:
+                self.controller.metadata["rfid_stop_wall_time_ns"] = time.time_ns()
+                self.controller.metadata["rfid_stop_perf_counter_ns"] = time.perf_counter_ns()
+                if stop_result:
+                    self.controller.metadata["skellycam_stop"] = stop_result
+
+                try:
+                    self.controller.finish()
+                    self.saved.emit(str(self.controller.files.meta_path))
+                except Exception as e:
+                    self._had_error = True
+                    self.error.emit(f"保存 session_meta.json 失败: {e}")
+
+    def stop(self):
+        self.is_running = False
+        try:
+            self.data_collector.stop_stream()
+        except Exception:
+            pass
+
+    def add_sync_event(self, event_type, notes=""):
+        try:
+            return self.controller.write_event(event_type, notes)
+        except Exception as e:
+            self.error.emit(str(e))
+            return None
 
 
 class VideoThread(QThread):

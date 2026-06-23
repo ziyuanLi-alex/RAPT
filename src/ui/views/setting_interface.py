@@ -189,6 +189,26 @@ class SettingsInterface(ScrollArea):
             self.dataGroup
         )
 
+        # === 3. SkellyCam 集成组 ===
+        self.skellycamGroup = SettingCardGroup("SkellyCam 集成", self.scrollWidget)
+
+        self.skellycamUrlCard = LineEditSettingCard(
+            FIF.IOT,
+            "SkellyCam 地址",
+            "SkellyCam HTTP API base URL",
+            self.skellycamGroup,
+        )
+        self.skellycamUrlCard.lineEdit.setFixedWidth(320)
+        self.skellycamUrlCard.lineEdit.setText(self.config.skellycam_base_url)
+
+        self.skellycamDirCard = PushSettingCard(
+            "选择文件夹",
+            FIF.FOLDER,
+            "SkellyCam 录制目录",
+            self.config.skellycam_recording_dir,
+            self.skellycamGroup,
+        )
+
     def __initLayout(self):
         self.deviceGroup.addSettingCard(self.comCard)
         self.deviceGroup.addSettingCard(self.baudCard)
@@ -197,11 +217,15 @@ class SettingsInterface(ScrollArea):
         self.dataGroup.addSettingCard(self.formatCard)
         self.dataGroup.addSettingCard(self.dirCard)
 
+        self.skellycamGroup.addSettingCard(self.skellycamUrlCard)
+        self.skellycamGroup.addSettingCard(self.skellycamDirCard)
+
         self.expandLayout.setSpacing(28)
         self.expandLayout.setContentsMargins(36, 10, 36, 0)
         
         self.expandLayout.addWidget(self.deviceGroup)
         self.expandLayout.addWidget(self.dataGroup)
+        self.expandLayout.addWidget(self.skellycamGroup)
 
     def __connectSignalToSlot(self):
         # 绑定信号以实现自动保存
@@ -223,6 +247,10 @@ class SettingsInterface(ScrollArea):
         
         # Dir
         self.dirCard.clicked.connect(self.__onDirClicked)
+
+        # SkellyCam
+        self.skellycamUrlCard.lineEdit.editingFinished.connect(self.__onSkellyCamUrlChanged)
+        self.skellycamDirCard.clicked.connect(self.__onSkellyCamDirClicked)
 
     # --- 槽函数 ---
 
@@ -360,6 +388,21 @@ class SettingsInterface(ScrollArea):
         if directory:
             self.config.output_dir = directory
             self.dirCard.setContent(directory)
+            self.config.save()
+
+    def __onSkellyCamUrlChanged(self):
+        value = self.skellycamUrlCard.lineEdit.text().strip()
+        if value and value != self.config.skellycam_base_url:
+            self.config.skellycam_base_url = value
+            self.config.save()
+
+    def __onSkellyCamDirClicked(self):
+        directory = QFileDialog.getExistingDirectory(
+            self, "选择 SkellyCam 录制目录", self.config.skellycam_recording_dir
+        )
+        if directory:
+            self.config.skellycam_recording_dir = directory
+            self.skellycamDirCard.setContent(directory)
             self.config.save()
 
     def __showRestartTip(self):

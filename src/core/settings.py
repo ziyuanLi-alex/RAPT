@@ -1,7 +1,13 @@
 import questionary
 import json
-import os
 from questionary import Choice
+
+try:
+    from .paths import app_dir, bundled_default_path, resolve_runtime_path
+except ImportError:
+    from paths import app_dir, bundled_default_path, resolve_runtime_path
+
+
 def settings_workflow(config):
     """系统设置工作流（旧菜单里新增“选择输出模式”）。"""
     while True:
@@ -86,7 +92,7 @@ class ConfigManager():
     
     def __init__(self) -> None:
         # --- 通用配置 ---
-        self.config_file = "config.json"
+        self.config_file = app_dir() / "config.json"
         
         # --- 读写器硬件配置 ---
         self.baud = 115200
@@ -94,17 +100,22 @@ class ConfigManager():
         
         # --- 数据处理配置 ---
         self.frame_duration_ms = 100
-        self.output_dir = "data"
+        self.output_dir = str(app_dir() / "data")
         self.output_format = "h5"  #  "h5" | "csv" | "both"
+        self.skellycam_base_url = "http://localhost:53117"
+        self.skellycam_recording_dir = r"H:\lib\Skellycam_recording"
 
     def save(self):
         """保存配置到文件。"""
+        self.config_file.parent.mkdir(parents=True, exist_ok=True)
         config_data = {
             "baud": self.baud,
             "com": self.com,
             "frame_duration_ms": self.frame_duration_ms,
             "output_dir": self.output_dir,
             "output_format": self.output_format,
+            "skellycam_base_url": self.skellycam_base_url,
+            "skellycam_recording_dir": self.skellycam_recording_dir,
         }
         try:
             with open(self.config_file, 'w', encoding='utf-8') as f:
@@ -114,15 +125,24 @@ class ConfigManager():
     
     def load(self):
         """从文件加载配置。"""
-        if os.path.exists(self.config_file):
+        load_path = self.config_file if self.config_file.exists() else bundled_default_path("config.json")
+        if load_path.exists():
             try:
-                with open(self.config_file, 'r', encoding='utf-8') as f:
+                with open(load_path, 'r', encoding='utf-8') as f:
                     config_data = json.load(f)
                     self.baud = config_data.get("baud", self.baud)
                     self.com = config_data.get("com", self.com)
                     self.frame_duration_ms = config_data.get("frame_duration_ms", self.frame_duration_ms)
-                    self.output_dir = config_data.get("output_dir", self.output_dir)
+                    self.output_dir = str(resolve_runtime_path(config_data.get("output_dir", self.output_dir)))
                     self.output_format = config_data.get("output_format", getattr(self, "output_format", "h5"))
+                    self.skellycam_base_url = config_data.get(
+                        "skellycam_base_url", self.skellycam_base_url
+                    )
+                    self.skellycam_recording_dir = config_data.get(
+                        "skellycam_recording_dir", self.skellycam_recording_dir
+                    )
+                if load_path != self.config_file:
+                    self.save()
                 print(f"已加载配置: COM口={self.com}, 波特率={self.baud}")
             except Exception as e:
                 print(f"加载配置失败，使用默认配置: {e}")

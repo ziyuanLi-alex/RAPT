@@ -2,13 +2,20 @@
 import questionary
 from rich.console import Console
 
-from settings import ConfigManager, settings_workflow
-from check_status import check_status_workflow
-from binding import BindingManager
-from DataCollector import DataCollector
+try:
+    from .settings import ConfigManager, settings_workflow
+    from .check_status import check_status_workflow
+    from .binding import BindingManager
+    from .DataCollector import DataCollector
+    from .mode import run_line_mode, run_point_mode
+except ImportError:
+    from settings import ConfigManager, settings_workflow
+    from check_status import check_status_workflow
+    from binding import BindingManager
+    from DataCollector import DataCollector
+    from mode import run_line_mode, run_point_mode
 
 # 新采集模式（线形/点形）
-from mode import run_line_mode, run_point_mode
 
 
 def main_menu() -> str | None:

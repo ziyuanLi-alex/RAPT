@@ -12,6 +12,7 @@ from PyQt6.QtGui import QIcon
 from qfluentwidgets import setTheme, Theme
 
 from ui.main_window import MainWindow
+from core.paths import resource_path
 
 if __name__ == '__main__':
     logging.info("RAPT application started")
@@ -19,17 +20,16 @@ if __name__ == '__main__':
     try:
         myappid = 'edu.sustech.eee.RAPT.v0.0.1'
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
-    except ImportError:
+    except (AttributeError, OSError):
         pass
 
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    icon_path = os.path.join(base_dir, "resources", "RAPT_icon.png")
+    icon_path = resource_path("resources", "RAPT_icon.png")
 
     app = QApplication(sys.argv)
     
     # 设置应用图标
-    if os.path.exists(icon_path):
-        app.setWindowIcon(QIcon(icon_path))
+    if icon_path.exists():
+        app.setWindowIcon(QIcon(str(icon_path)))
     else:
         logging.warning(f"Icon not found at {icon_path}")
 
