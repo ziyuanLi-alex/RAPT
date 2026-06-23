@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPlainTextEdit, QFormLayout
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPlainTextEdit, QFormLayout, QFileDialog
 from qfluentwidgets import (
     SubtitleLabel,
     CardWidget,
@@ -57,7 +57,18 @@ class IntegratedInterface(QWidget):
 
         self.healthLabel = StrongBodyLabel("SkellyCam: 未检查", self.formCard)
         self.baseUrlLabel = BodyLabel(self.config.skellycam_base_url, self.formCard)
-        self.dirLabel = BodyLabel(self.config.skellycam_recording_dir, self.formCard)
+
+        self.dirEdit = LineEdit(self.formCard)
+        self.dirEdit.setReadOnly(True)
+        self.dirEdit.setText(self.config.skellycam_recording_dir)
+        self.dirBrowseBtn = PushButton("浏览", self.formCard)
+        self.dirBrowseBtn.setFixedWidth(60)
+        self.dirRow = QWidget(self.formCard)
+        self.dirRowLayout = QHBoxLayout(self.dirRow)
+        self.dirRowLayout.setContentsMargins(0, 0, 0, 0)
+        self.dirRowLayout.setSpacing(8)
+        self.dirRowLayout.addWidget(self.dirEdit, 1)
+        self.dirRowLayout.addWidget(self.dirBrowseBtn, 0)
 
         self.formLayout.addRow("Subject ID", self.subjectEdit)
         self.formLayout.addRow("Action", self.actionEdit)
@@ -65,7 +76,7 @@ class IntegratedInterface(QWidget):
         self.formLayout.addRow("Recording Name", self.recordingNameEdit)
         self.formLayout.addRow("Notes", self.notesEdit)
         self.formLayout.addRow("SkellyCam URL", self.baseUrlLabel)
-        self.formLayout.addRow("Recording Dir", self.dirLabel)
+        self.formLayout.addRow("Recording Dir", self.dirRow)
         self.formLayout.addRow("Health", self.healthLabel)
 
         self.contentLayout.addWidget(self.formCard, 1)
@@ -111,6 +122,7 @@ class IntegratedInterface(QWidget):
         self.stopBtn.clicked.connect(self.stop_recording)
         self.syncStartBtn.clicked.connect(lambda: self.write_sync_event("sync_start"))
         self.syncEndBtn.clicked.connect(lambda: self.write_sync_event("sync_end"))
+        self.dirBrowseBtn.clicked.connect(self._browse_recording_dir)
 
     def _recording_name(self):
         return build_recording_name(
@@ -121,6 +133,15 @@ class IntegratedInterface(QWidget):
 
     def _update_recording_name(self):
         self.recordingNameEdit.setText(self._recording_name())
+
+    def _browse_recording_dir(self):
+        directory = QFileDialog.getExistingDirectory(
+            self, "选择 SkellyCam 录制目录", self.config.skellycam_recording_dir
+        )
+        if directory:
+            self.config.skellycam_recording_dir = directory
+            self.dirEdit.setText(directory)
+            self.config.save()
 
     def append_log(self, text):
         self.logDisplay.appendPlainText(text)
