@@ -142,56 +142,111 @@ data/RAPT_dataset/
 
 ## 环境依赖
 
-- Python 3.8+
-- 依赖库列表见 `requirements.txt`
-- 核心依赖为 uhfReaderApi
+推荐环境：
+
+- Windows
+- Python 3.11
+- UHF RFID 读写器及可用 COM 口
+- 摄像头，可选
+- SkellyCam HTTP 服务，可选，仅集成采集需要
+
+安装 Python 依赖：
+
+```powershell
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+```
+
+可以用下面的命令快速检查关键依赖：
+
+```powershell
+python -c "import PyQt6, qfluentwidgets, cv2, h5py, uhf.reader; print('imports ok')"
+```
 
 ## 快速开始
 
-### 1. 安装依赖
+### 1. 准备配置
 
-```bash
-pip install -r requirements.txt
+确认 `config.json` 中的串口、波特率、输出目录和 SkellyCam 配置适合当前机器：
+
+```json
+{
+    "baud": 115200,
+    "com": "COM6",
+    "frame_duration_ms": 100,
+    "output_dir": "data",
+    "output_format": "h5",
+    "skellycam_base_url": "http://localhost:53117",
+    "skellycam_recording_dir": "H:\\lib\\Skellycam_recording",
+    "locale": "auto"
+}
 ```
 
-### 2. 运行程序
+也可以启动 GUI 后在“设置”页面修改。
 
-```bash
+### 2. 启动应用
+
+```powershell
 python src/main.py
 ```
 
-### 3. 操作指南
+### 3. 推荐采集流程
 
-启动后将看到主菜单，可以使用键盘方向键选择功能：
+1. 打开“设置”，扫描串口并验证读写器连接。
+2. 打开“系统诊断”，确认能读到 EPC/RSSI。
+3. 打开“标签管理”，为实验标签绑定易读名称。
+4. 根据实验选择“采集监控”“视频采集”或“集成采集”。
+5. 到配置的输出目录中检查生成的数据。
 
-1. **新采集模式**：进入线形/点形采集流程。
-2. **标签绑定管理**：扫描新标签并设置名称，或查看已有绑定。
-3. **系统设置**：配置串口号、波特率、输出目录等。
-4. **检查读写器状态**：测试设备连接是否正常。
+## SkellyCam 集成检查
 
-## 项目结构
+集成采集前请确认 SkellyCam HTTP 服务已经启动，并且录制目录存在。
 
-```text
-h:\projects\RAPT\
-├── docs/               # 文档
-├── src/                # 源代码目录
-│   ├── main.py         # 程序入口
-│   ├── mode.py         # 采集模式逻辑
-│   ├── binding.py      # 标签绑定管理器
-│   ├── DataCollector.py# 核心数据采集类
-│   └── ...
-├── example/            # 示例脚本
-├── config.json         # 用户配置文件
-├── requirements.txt    # Python 依赖
-└── README.md           # 说明文档
+可以使用脚本做 smoke test：
+
+```powershell
+python scripts/smoke_skellycam.py `
+  --base-url http://localhost:53117 `
+  --recording-dir H:\lib\Skellycam_recording
 ```
 
-## 开发计划
-
-- [ ] 集成 C++ 模块。
-- [ ] 使用PyQT和PyQt Fluent Widgets实现美观的GUI。
-- [ ] 整合基于视觉的数据采集功能。
-- [ ] 现在使用RS232转USB，未来可加入USB HID支持。
+脚本会依次调用 health check、start recording 和 stop recording。
 
 
+## 从源码构建 dist 下的 .exe
 
+Windows 打包使用仓库内的 `RAPT.spec`。它会收集 qfluentwidgets、uhfReaderApi、资源文件、`config.json` 和 `binding.json`，并生成 GUI 应用。
+
+### 1. 安装构建依赖
+
+建议使用干净的 Python 3.11 环境：
+
+```powershell
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+```
+
+### 2. 构建
+
+在项目根目录运行：
+
+```powershell
+python -m PyInstaller --noconfirm --clean RAPT.spec
+```
+
+构建结果：
+
+```text
+dist/
+└── RAPT/
+    ├── RAPT.exe
+    ├── config.json
+    ├── binding.json
+    └── _internal/
+```
+
+### 3. 运行打包应用
+
+```powershell
+.\dist\RAPT\RAPT.exe
+```

@@ -14,6 +14,7 @@ from qfluentwidgets import (
 
 from core.settings import ConfigManager
 from core.integrated_session import build_recording_name
+from ui.i18n import t
 from ui.threads import IntegratedRecordingThread, SkellyCamHealthThread
 
 
@@ -30,7 +31,7 @@ class IntegratedInterface(QWidget):
         self.vBoxLayout.setContentsMargins(30, 30, 30, 30)
         self.vBoxLayout.setSpacing(20)
 
-        self.titleLabel = SubtitleLabel("集成采集 (SkellyCam + RFID)", self)
+        self.titleLabel = SubtitleLabel(t("integrated.title", self.config), self)
         self.vBoxLayout.addWidget(self.titleLabel)
 
         self.contentLayout = QHBoxLayout()
@@ -61,7 +62,7 @@ class IntegratedInterface(QWidget):
         self.dirEdit = LineEdit(self.formCard)
         self.dirEdit.setReadOnly(True)
         self.dirEdit.setText(self.config.skellycam_recording_dir)
-        self.dirBrowseBtn = PushButton("浏览", self.formCard)
+        self.dirBrowseBtn = PushButton(t("integrated.browse", self.config), self.formCard)
         self.dirBrowseBtn.setFixedWidth(60)
         self.dirRow = QWidget(self.formCard)
         self.dirRowLayout = QHBoxLayout(self.dirRow)
@@ -70,14 +71,14 @@ class IntegratedInterface(QWidget):
         self.dirRowLayout.addWidget(self.dirEdit, 1)
         self.dirRowLayout.addWidget(self.dirBrowseBtn, 0)
 
-        self.formLayout.addRow("Subject ID", self.subjectEdit)
-        self.formLayout.addRow("Action", self.actionEdit)
-        self.formLayout.addRow("Trial ID", self.trialEdit)
-        self.formLayout.addRow("Recording Name", self.recordingNameEdit)
-        self.formLayout.addRow("Notes", self.notesEdit)
-        self.formLayout.addRow("SkellyCam URL", self.baseUrlLabel)
-        self.formLayout.addRow("Recording Dir", self.dirRow)
-        self.formLayout.addRow("Health", self.healthLabel)
+        self.formLayout.addRow(t("integrated.subject_id", self.config), self.subjectEdit)
+        self.formLayout.addRow(t("integrated.action", self.config), self.actionEdit)
+        self.formLayout.addRow(t("integrated.trial_id", self.config), self.trialEdit)
+        self.formLayout.addRow(t("integrated.recording_name", self.config), self.recordingNameEdit)
+        self.formLayout.addRow(t("integrated.notes", self.config), self.notesEdit)
+        self.formLayout.addRow(t("integrated.skellycam_url", self.config), self.baseUrlLabel)
+        self.formLayout.addRow(t("integrated.recording_dir", self.config), self.dirRow)
+        self.formLayout.addRow(t("integrated.health", self.config), self.healthLabel)
 
         self.contentLayout.addWidget(self.formCard, 1)
 
@@ -97,11 +98,11 @@ class IntegratedInterface(QWidget):
         self.controlCard = CardWidget(self)
         self.controlLayout = QHBoxLayout(self.controlCard)
         self.controlLayout.setContentsMargins(12, 12, 12, 12)
-        self.checkBtn = PushButton("Check SkellyCam", self.controlCard)
-        self.startBtn = PrimaryPushButton("Start Integrated Recording", self.controlCard)
-        self.syncStartBtn = PushButton("Sync Start", self.controlCard)
-        self.syncEndBtn = PushButton("Sync End", self.controlCard)
-        self.stopBtn = PushButton("Stop Integrated Recording", self.controlCard)
+        self.checkBtn = PushButton(t("integrated.check", self.config), self.controlCard)
+        self.startBtn = PrimaryPushButton(t("integrated.start", self.config), self.controlCard)
+        self.syncStartBtn = PushButton(t("integrated.sync_start", self.config), self.controlCard)
+        self.syncEndBtn = PushButton(t("integrated.sync_end", self.config), self.controlCard)
+        self.stopBtn = PushButton(t("integrated.stop", self.config), self.controlCard)
         self.controlLayout.addWidget(self.checkBtn)
         self.controlLayout.addWidget(self.startBtn)
         self.controlLayout.addWidget(self.syncStartBtn)

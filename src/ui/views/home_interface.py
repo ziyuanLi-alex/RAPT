@@ -1,136 +1,125 @@
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout
-from PyQt6.QtCore import Qt, QThread, pyqtSignal
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QFrame
+from PyQt6.QtCore import Qt
 from qfluentwidgets import (
+    ScrollArea,
     SubtitleLabel,
     BodyLabel,
     CardWidget,
     IconWidget,
     FluentIcon as FIF,
-    PrimaryPushButton,
     StrongBodyLabel,
-    InfoBar,
-    InfoBarPosition
 )
 
-# 引入后端逻辑
 from core.settings import ConfigManager
-from uhf.reader import GClient
+from ui.i18n import t
+
+
+class _StepCard(CardWidget):
+    def __init__(self, number: int, title: str, description: str, icon, parent=None):
+        super().__init__(parent)
+        self.setMinimumHeight(64)
+
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(16, 8, 16, 8)
+        layout.setSpacing(12)
+
+        num_label = SubtitleLabel(str(number), self)
+        num_label.setFixedWidth(28)
+        num_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        num_label.setStyleSheet("color: #009faa; font-size: 20px; font-weight: bold;")
+
+        icon_widget = IconWidget(icon, self)
+        icon_widget.setFixedSize(24, 24)
+
+        text_layout = QVBoxLayout()
+        text_layout.setSpacing(2)
+        title_label = StrongBodyLabel(title, self)
+        desc_label = BodyLabel(description, self)
+        desc_label.setWordWrap(True)
+        desc_label.setStyleSheet("color: #888;")
+        text_layout.addWidget(title_label)
+        text_layout.addWidget(desc_label)
+
+        layout.addWidget(num_label)
+        layout.addWidget(icon_widget)
+        layout.addLayout(text_layout, 1)
+
+
+class _InfoCard(CardWidget):
+    def __init__(self, icon, title: str, description: str, parent=None):
+        super().__init__(parent)
+        self.setMinimumHeight(56)
+
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(16, 8, 16, 8)
+        layout.setSpacing(12)
+
+        icon_widget = IconWidget(icon, self)
+        icon_widget.setFixedSize(22, 22)
+
+        text_layout = QVBoxLayout()
+        text_layout.setSpacing(2)
+        title_label = StrongBodyLabel(title, self)
+        desc_label = BodyLabel(description, self)
+        desc_label.setWordWrap(True)
+        desc_label.setStyleSheet("color: #888;")
+        text_layout.addWidget(title_label)
+        text_layout.addWidget(desc_label)
+
+        layout.addWidget(icon_widget)
+        layout.addLayout(text_layout, 1)
+
 
 class HomeInterface(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
         self.setObjectName("homeInterface")
-        
+
         self.config = ConfigManager()
-        # self.config.load() 
 
-        # 主布局
-        self.vBoxLayout = QVBoxLayout(self)
-        self.vBoxLayout.setContentsMargins(30, 30, 30, 30)
-        self.vBoxLayout.setSpacing(20)
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(0, 0, 0, 0)
 
-        # 1. 标题头
-        self.titleLabel = SubtitleLabel("欢迎使用 RAPT", self)
-        self.descLabel = BodyLabel("RFID Analysis & Pose Toolkit - 多模态数据采集与分析平台", self)
-        
-        self.vBoxLayout.addWidget(self.titleLabel)
-        self.vBoxLayout.addWidget(self.descLabel)
+        scroll = ScrollArea(self)
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
 
-        # 2. 状态卡片区域
-        self.statusLayout = QHBoxLayout()
-        self.statusLayout.setSpacing(15)
-        
-        # 读写器状态卡片
-        self.readerCard, self.readerStatusLabel, self.readerBtn = self.createStatusCard(
-            FIF.IOT, "RFID Reader", "未连接", "检查连接"
-        )
-        self.readerBtn.clicked.connect(self.checkReaderStatus)
+        container = QWidget()
+        root = QVBoxLayout(container)
+        root.setContentsMargins(36, 24, 36, 24)
+        root.setSpacing(16)
 
-        # 摄像头状态卡片
-        self.cameraCard, self.cameraStatusLabel, self.cameraBtn = self.createStatusCard(
-            FIF.CAMERA, "Vision Camera", "就绪 (模拟)", "预览"
-        )
-        self.cameraBtn.setEnabled(False) # 暂时禁用
-        
-        self.statusLayout.addWidget(self.readerCard)
-        self.statusLayout.addWidget(self.cameraCard)
-        self.statusLayout.addStretch(1) # 靠左对齐
-        
-        self.vBoxLayout.addLayout(self.statusLayout)
-        self.vBoxLayout.addStretch(1) # 顶上去
+        root.addWidget(SubtitleLabel(t("home.title", self.config), self))
 
-    def createStatusCard(self, icon, title, status, btn_text):
-        """ 创建一个包含图标、状态和按钮的卡片 """
-        card = CardWidget(self)
-        card.setFixedSize(280, 100)
-        
-        layout = QHBoxLayout(card)
-        layout.setContentsMargins(20, 10, 20, 10)
-        
-        # 图标
-        iconWidget = IconWidget(icon)
-        iconWidget.setFixedSize(36, 36)
-        
-        # 文本区域
-        textLayout = QVBoxLayout()
-        titleLabel = StrongBodyLabel(title, card)
-        statusLabel = BodyLabel(status, card)
-        
-        # 根据状态变色 (初始化)
-        if "未连接" in status:
-            statusLabel.setStyleSheet("color: #cfcfcf") # 灰色
-        else:
-            statusLabel.setStyleSheet("color: #009faa") # 绿色
-            
-        textLayout.addWidget(titleLabel)
-        textLayout.addWidget(statusLabel)
-        
-        # 按钮
-        actionBtn = PrimaryPushButton(btn_text, card)
-        actionBtn.setFixedWidth(80)
-        
-        layout.addWidget(iconWidget)
-        layout.addLayout(textLayout)
-        layout.addStretch(1)
-        layout.addWidget(actionBtn)
-        
-        return card, statusLabel, actionBtn
+        desc = BodyLabel(t("home.description", self.config), self)
+        desc.setWordWrap(True)
+        desc.setStyleSheet("color: #aaa; font-size: 13px;")
+        root.addWidget(desc)
 
-    def checkReaderStatus(self):
-        """检查读写器连接状态"""
-        self.readerBtn.setEnabled(False)
-        self.readerBtn.setText("检查中...")
-        self.readerStatusLabel.setText("正在连接...")
-        
-        try:
-            client = GClient()
-            if client.openSerial((self.config.com, self.config.baud)):
-                self.readerStatusLabel.setText(f"已连接 ({self.config.com})")
-                self.readerStatusLabel.setStyleSheet("color: #009faa") # Green
-                client.close()
-                InfoBar.success(
-                    title='连接成功',
-                    content=f"成功连接到读写器 {self.config.com}",
-                    parent=self,
-                    position=InfoBarPosition.TOP_RIGHT
-                )
-            else:
-                self.readerStatusLabel.setText("连接失败")
-                self.readerStatusLabel.setStyleSheet("color: #d00000") # Red
-                InfoBar.error(
-                    title='连接失败',
-                    content=f"无法打开串口 {self.config.com}，请检查配置或物理连接。",
-                    parent=self,
-                    position=InfoBarPosition.TOP_RIGHT
-                )
-        except Exception as e:
-            self.readerStatusLabel.setText("错误")
-            InfoBar.error(
-                title='系统错误',
-                content=str(e),
-                parent=self,
-                position=InfoBarPosition.TOP_RIGHT
-            )
-        finally:
-            self.readerBtn.setText("检查连接")
-            self.readerBtn.setEnabled(True)
+        root.addWidget(StrongBodyLabel(t("home.quick_start", self.config), self))
+
+        steps = [
+            (FIF.SETTING, t("home.step1_title", self.config), t("home.step1_desc", self.config)),
+            (FIF.IOT,     t("home.step2_title", self.config), t("home.step2_desc", self.config)),
+            (FIF.CAMERA,  t("home.step3_title", self.config), t("home.step3_desc", self.config)),
+            (FIF.PLAY,    t("home.step4_title", self.config), t("home.step4_desc", self.config)),
+        ]
+        for i, (icon, title, desc_text) in enumerate(steps, 1):
+            root.addWidget(_StepCard(i, title, desc_text, icon, self))
+
+        root.addSpacing(4)
+
+        root.addWidget(StrongBodyLabel(t("home.features", self.config), self))
+
+        features = [
+            (FIF.TAG,   t("home.feat_tags_title", self.config),    t("home.feat_tags_desc", self.config)),
+            (FIF.PLAY,  t("home.feat_monitor_title", self.config), t("home.feat_monitor_desc", self.config)),
+            (FIF.HEART, t("home.feat_diag_title", self.config),    t("home.feat_diag_desc", self.config)),
+        ]
+        for icon, title, desc_text in features:
+            root.addWidget(_InfoCard(icon, title, desc_text, self))
+
+        root.addStretch(1)
+
+        scroll.setWidget(container)
+        outer.addWidget(scroll)

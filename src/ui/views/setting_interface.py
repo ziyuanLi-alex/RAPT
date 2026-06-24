@@ -4,11 +4,12 @@ from PyQt6.QtWidgets import QWidget, QVBoxLayout, QFileDialog
 from qfluentwidgets import (
     ScrollArea, ExpandLayout, SettingCardGroup, SettingCard,
     ComboBoxSettingCard, SwitchSettingCard, PushSettingCard,
-    FluentIcon as FIF, InfoBar, LineEdit, SpinBox, ComboBox, PrimaryPushButton,
+    FluentIcon as FIF, InfoBar, InfoBarPosition, LineEdit, SpinBox, ComboBox, PrimaryPushButton,
     StateToolTip, MessageBoxBase, SubtitleLabel, BodyLabel
 )
 
 from core.settings import ConfigManager
+from ui.i18n import LOCALE_OPTIONS, locale_code_from_label, locale_label, t
 from utils.serial_utils import get_serial_ports, check_reader_connection, get_serial_ports_details
 from ui.threads import PortListThread, PortScannerThread, ConnectionCheckThread
 
@@ -125,6 +126,17 @@ class SettingsInterface(ScrollArea):
         self.__connectSignalToSlot()
 
     def __initWidgets(self):
+        # === 0. 界面组 ===
+        self.interfaceGroup = SettingCardGroup(t("settings.language_group", self.config), self.scrollWidget)
+        self.languageCard = CustomComboBoxSettingCard(
+            FIF.SETTING,
+            t("settings.language", self.config),
+            t("settings.language_desc", self.config),
+            texts=[locale_label(code, self.config) for code, _, _ in LOCALE_OPTIONS],
+            parent=self.interfaceGroup,
+        )
+        self.languageCard.setValue(locale_label(self.config.locale, self.config))
+
         # === 1. 设备连接组 ===
         self.deviceGroup = SettingCardGroup("设备连接", self.scrollWidget)
         
@@ -210,6 +222,8 @@ class SettingsInterface(ScrollArea):
         )
 
     def __initLayout(self):
+        self.interfaceGroup.addSettingCard(self.languageCard)
+
         self.deviceGroup.addSettingCard(self.comCard)
         self.deviceGroup.addSettingCard(self.baudCard)
         
@@ -223,6 +237,7 @@ class SettingsInterface(ScrollArea):
         self.expandLayout.setSpacing(28)
         self.expandLayout.setContentsMargins(36, 10, 36, 0)
         
+        self.expandLayout.addWidget(self.interfaceGroup)
         self.expandLayout.addWidget(self.deviceGroup)
         self.expandLayout.addWidget(self.dataGroup)
         self.expandLayout.addWidget(self.skellycamGroup)
@@ -231,6 +246,7 @@ class SettingsInterface(ScrollArea):
         # 绑定信号以实现自动保存
         
         # COM
+        self.languageCard.comboBox.currentTextChanged.connect(self.__onLanguageChanged)
         self.comCard.comboBox.currentTextChanged.connect(self.__onComChanged)
         self.comCard.scanBtn.clicked.connect(self.__onScanPorts) # 绑定扫描按钮
         self.comCard.checkBtn.clicked.connect(self.__onCheckConnection)
@@ -253,6 +269,19 @@ class SettingsInterface(ScrollArea):
         self.skellycamDirCard.clicked.connect(self.__onSkellyCamDirClicked)
 
     # --- 槽函数 ---
+
+    def __onLanguageChanged(self, text):
+        locale_code = locale_code_from_label(text)
+        if locale_code == self.config.locale:
+            return
+        self.config.locale = locale_code
+        self.config.save()
+        InfoBar.success(
+            title=t("settings.language_saved_title", self.config),
+            content=t("settings.language_saved_content", self.config),
+            parent=self.window(),
+            position=InfoBarPosition.TOP_RIGHT,
+        )
 
     def __onScanPorts(self):
         self.comCard.comboBox.clear()

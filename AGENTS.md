@@ -27,6 +27,7 @@
   - `output_format`
   - `skellycam_base_url`
   - `skellycam_recording_dir`
+  - `locale`
 - Default SkellyCam base URL: `http://localhost:53117`.
 - Default SkellyCam recording directory: `H:\lib\Skellycam_recording`.
 
