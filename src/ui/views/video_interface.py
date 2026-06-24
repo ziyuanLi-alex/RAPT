@@ -17,6 +17,7 @@ import threading
 
 from core.settings import ConfigManager
 from core.DataCollector import DataCollector
+from ui.i18n import t
 from ..threads import VideoThread, ContinuousCollectThread
 import time
 
@@ -36,7 +37,7 @@ class VideoInterface(QWidget):
         self.vBoxLayout.setSpacing(20)
 
         # Header
-        self.titleLabel = SubtitleLabel("视频同步采集", self)
+        self.titleLabel = SubtitleLabel(t("video.title", self.config), self)
         self.vBoxLayout.addWidget(self.titleLabel)
 
         # Content Layout: Left (Video), Right (Stats)
@@ -76,7 +77,7 @@ class VideoInterface(QWidget):
         self.controlLayout = QHBoxLayout(self.controlCard)
         self.controlLayout.setContentsMargins(10, 10, 10, 10)
         
-        self.camLabel = BodyLabel("摄像头ID:", self.controlCard)
+        self.camLabel = BodyLabel(t("video.camera", self.config), self.controlCard)
         self.camCombo = ComboBox(self.controlCard)
         self.camCombo.setFixedWidth(140)
         self.populate_cameras()
@@ -86,7 +87,7 @@ class VideoInterface(QWidget):
         self.nameEdit.setPlaceholderText("video_test_01")
         self.nameEdit.setFixedWidth(150)
         
-        self.startBtn = PrimaryPushButton("开始同步采集", self.controlCard)
+        self.startBtn = PrimaryPushButton(t("video.start_capture", self.config), self.controlCard)
         self.startBtn.clicked.connect(self.toggleCapture)
         
         self.controlLayout.addWidget(self.camLabel)
@@ -106,9 +107,9 @@ class VideoInterface(QWidget):
 
         # Mode Selector
         self.modePivot = SegmentedWidget(self)
-        self.modePivot.addItem("Joint", "双模")
-        self.modePivot.addItem("Video", "视频")
-        self.modePivot.addItem("RFID", "射频")
+        self.modePivot.addItem("Joint", t("video.joint", self.config))
+        self.modePivot.addItem("Video", t("video.video_only", self.config))
+        self.modePivot.addItem("RFID", t("video.rfid_only", self.config))
         self.modePivot.setCurrentItem("Joint")
         self.modePivot.currentItemChanged.connect(self.onModeChanged)
         self.currentMode = "Joint"
@@ -359,7 +360,7 @@ class VideoInterface(QWidget):
         r_running = self.rfidThread and self.rfidThread.isRunning()
         
         if not v_running and not r_running:
-            self.startBtn.setText("开始同步采集")
+            self.startBtn.setText(t("video.start_capture", self.config))
             self.startBtn.setEnabled(True)
             self.nameEdit.setEnabled(True)
             self.camCombo.setEnabled(True)

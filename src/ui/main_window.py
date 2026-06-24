@@ -13,6 +13,7 @@ from qfluentwidgets import (
     FluentIcon as FIF,
     SplashScreen
 )
+from ui.i18n import t
 
 from .views import (
     HomeInterface,
@@ -54,12 +55,14 @@ class MainWindow(FluentWindow):
 
 
     def initWindow(self):
-        self.resize(1100, 750)
-        self.setWindowTitle('RAPT - RFID Analysis & Pose Toolkit')
-        
+        self.setWindowTitle(t("app.window_title", self.config))
+        self.setMinimumSize(1100, 720)
+
         desktop = QApplication.primaryScreen().availableGeometry()
         w, h = desktop.width(), desktop.height()
-        self.move(w//2 - self.width()//2, h//2 - self.height()//2)
+        target_w, target_h = int(w * 0.68), int(h * 0.68)
+        self.resize(target_w, target_h)
+        self.move(w // 2 - target_w // 2, h // 2 - target_h // 2)
 
     def initNavigation(self):
         # --- 顶部导航区域 ---
@@ -68,7 +71,7 @@ class MainWindow(FluentWindow):
         self.addSubInterface(
             self.homeInterface,
             FIF.HOME,
-            "总览 (Dashboard)",
+            t("nav.home", self.config),
             NavigationItemPosition.TOP
         )
         logging.info("Home interface added to navigation")  
@@ -76,7 +79,7 @@ class MainWindow(FluentWindow):
         self.addSubInterface(
             self.collectInterface,
             FIF.PLAY, # 或者用 VIDEO 图标
-            "采集监控 (Monitor)",
+            t("nav.collect", self.config),
             NavigationItemPosition.TOP
         )
         logging.info("Collect interface added to navigation")  
@@ -85,21 +88,21 @@ class MainWindow(FluentWindow):
         self.addSubInterface(
             self.tagsInterface,
             FIF.TAG,
-            "标签管理 (Tags)",
+            t("nav.tags", self.config),
             NavigationItemPosition.TOP
         )
 
         self.addSubInterface(
             self.videoInterface,
             FIF.CAMERA,
-            "视频采集 (Video)",
+            t("nav.video", self.config),
             NavigationItemPosition.TOP
         )
 
         self.addSubInterface(
             self.integratedInterface,
             FIF.PLAY,
-            "集成采集 (Integrated)",
+            t("nav.integrated", self.config),
             NavigationItemPosition.TOP
         )
 
@@ -109,7 +112,7 @@ class MainWindow(FluentWindow):
         self.addSubInterface(
             self.diagnosticsInterface,
             FIF.HEART,
-            "系统诊断 (Diagnostics)",
+            t("nav.diagnostics", self.config),
             NavigationItemPosition.TOP
         )
 
@@ -117,6 +120,6 @@ class MainWindow(FluentWindow):
         self.addSubInterface(
             self.settingsInterface,
             FIF.SETTING,
-            "设置 (Settings)",
+            t("nav.settings", self.config),
             NavigationItemPosition.BOTTOM
         )

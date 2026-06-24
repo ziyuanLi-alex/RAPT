@@ -104,6 +104,7 @@ class ConfigManager():
         self.output_format = "h5"  #  "h5" | "csv" | "both"
         self.skellycam_base_url = "http://localhost:53117"
         self.skellycam_recording_dir = r"H:\lib\Skellycam_recording"
+        self.locale = "zh_CN"
 
     def save(self):
         """保存配置到文件。"""
@@ -116,6 +117,7 @@ class ConfigManager():
             "output_format": self.output_format,
             "skellycam_base_url": self.skellycam_base_url,
             "skellycam_recording_dir": self.skellycam_recording_dir,
+            "locale": self.locale,
         }
         try:
             with open(self.config_file, 'w', encoding='utf-8') as f:
@@ -141,6 +143,7 @@ class ConfigManager():
                     self.skellycam_recording_dir = config_data.get(
                         "skellycam_recording_dir", self.skellycam_recording_dir
                     )
+                    self.locale = config_data.get("locale", self.locale)
                 if load_path != self.config_file:
                     self.save()
                 print(f"已加载配置: COM口={self.com}, 波特率={self.baud}")
