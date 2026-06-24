@@ -14,6 +14,7 @@ from qfluentwidgets import (
 
 # 引入后端逻辑
 from core.settings import ConfigManager
+from ui.i18n import t
 from uhf.reader import GClient
 
 class HomeInterface(QWidget):
@@ -30,8 +31,12 @@ class HomeInterface(QWidget):
         self.vBoxLayout.setSpacing(20)
 
         # 1. 标题头
-        self.titleLabel = SubtitleLabel("欢迎使用 RAPT", self)
-        self.descLabel = BodyLabel("RFID Analysis & Pose Toolkit - 多模态数据采集与分析平台", self)
+        self.titleLabel = SubtitleLabel(t("home.title", self.config), self)
+        self.descLabel = BodyLabel(
+            t("home.description", self.config),
+            self,
+        )
+        self.descLabel.setWordWrap(True)
         
         self.vBoxLayout.addWidget(self.titleLabel)
         self.vBoxLayout.addWidget(self.descLabel)
@@ -42,13 +47,19 @@ class HomeInterface(QWidget):
         
         # 读写器状态卡片
         self.readerCard, self.readerStatusLabel, self.readerBtn = self.createStatusCard(
-            FIF.IOT, "RFID Reader", "未连接", "检查连接"
+            FIF.IOT,
+            t("home.reader", self.config),
+            t("home.not_connected", self.config),
+            t("home.check_connection", self.config),
         )
         self.readerBtn.clicked.connect(self.checkReaderStatus)
 
         # 摄像头状态卡片
         self.cameraCard, self.cameraStatusLabel, self.cameraBtn = self.createStatusCard(
-            FIF.CAMERA, "Vision Camera", "就绪 (模拟)", "预览"
+            FIF.CAMERA,
+            t("home.video_skellycam", self.config),
+            t("home.capture_pages", self.config),
+            t("home.capture_entry", self.config),
         )
         self.cameraBtn.setEnabled(False) # 暂时禁用
         
