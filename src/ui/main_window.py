@@ -55,12 +55,14 @@ class MainWindow(FluentWindow):
 
 
     def initWindow(self):
-        self.resize(1100, 750)
         self.setWindowTitle(t("app.window_title", self.config))
-        
+        self.setMinimumSize(1100, 720)
+
         desktop = QApplication.primaryScreen().availableGeometry()
         w, h = desktop.width(), desktop.height()
-        self.move(w//2 - self.width()//2, h//2 - self.height()//2)
+        target_w, target_h = int(w * 0.68), int(h * 0.68)
+        self.resize(target_w, target_h)
+        self.move(w // 2 - target_w // 2, h // 2 - target_h // 2)
 
     def initNavigation(self):
         # --- 顶部导航区域 ---

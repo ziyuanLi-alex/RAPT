@@ -104,7 +104,7 @@ class ConfigManager():
         self.output_format = "h5"  #  "h5" | "csv" | "both"
         self.skellycam_base_url = "http://localhost:53117"
         self.skellycam_recording_dir = r"H:\lib\Skellycam_recording"
-        self.locale = "auto"
+        self.locale = "zh_CN"
 
     def save(self):
         """保存配置到文件。"""

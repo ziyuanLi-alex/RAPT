@@ -4,7 +4,7 @@ from PyQt6.QtWidgets import QWidget, QVBoxLayout, QFileDialog
 from qfluentwidgets import (
     ScrollArea, ExpandLayout, SettingCardGroup, SettingCard,
     ComboBoxSettingCard, SwitchSettingCard, PushSettingCard,
-    FluentIcon as FIF, InfoBar, LineEdit, SpinBox, ComboBox, PrimaryPushButton,
+    FluentIcon as FIF, InfoBar, InfoBarPosition, LineEdit, SpinBox, ComboBox, PrimaryPushButton,
     StateToolTip, MessageBoxBase, SubtitleLabel, BodyLabel
 )
 
