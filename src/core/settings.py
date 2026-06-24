@@ -103,7 +103,7 @@ class ConfigManager():
         self.output_dir = str(app_dir() / "data")
         self.output_format = "h5"  #  "h5" | "csv" | "both"
         self.skellycam_base_url = "http://localhost:53117"
-        self.skellycam_recording_dir = r"H:\lib\Skellycam_recording"
+        self.skellycam_recording_dir = str(app_dir() / "data" / "skellycam_recording")
         self.locale = "zh_CN"
 
     def save(self):

@@ -206,7 +206,13 @@ class DataCollector:
         self.frame_duration_ms = config.frame_duration_ms
         self.frame_duration_sec = self.frame_duration_ms / 1000.0
         self.output_dir = config.output_dir
-        os.makedirs(self.output_dir, exist_ok=True)
+        try:
+            os.makedirs(self.output_dir, exist_ok=True)
+        except (OSError, FileNotFoundError):
+            fallback = os.path.join(os.path.expanduser("~"), "RAPT_data")
+            print(f"警告: 无法创建输出目录 '{self.output_dir}'，回退到 '{fallback}'")
+            self.output_dir = fallback
+            os.makedirs(self.output_dir, exist_ok=True)
 
         # 状态
         self.session_active = False
