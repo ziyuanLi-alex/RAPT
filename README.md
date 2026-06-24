@@ -104,9 +104,9 @@ data/YYYYMMDD/raw_mode/
 
 1. 创建 RAPT session 目录。
 2. 启动 RFID raw logging。
-3. 调用 SkellyCam `/start_recording`。
+3. 调用 SkellyCam `/skellycam/camera/group/all/record/start`。
 4. 支持写入 `sync_start` 和 `sync_end` 同步事件。
-5. 停止时调用 SkellyCam `/stop_recording`。
+5. 停止时调用 SkellyCam `/skellycam/camera/group/all/record/stop`。
 6. 保存 RFID CSV、事件 CSV 和 session metadata。
 
 集成采集默认数据结构：

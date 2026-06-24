@@ -42,11 +42,11 @@ def start_recording(
         "recording_directory": recording_directory,
         "mic_device_index": mic_device_index,
     }
-    result = _timed_request("POST", _url(base_url, "/start_recording"), json=payload)
+    result = _timed_request("POST", _url(base_url, "/skellycam/camera/group/all/record/start"), json=payload)
     result["request_payload"] = payload
     return result
 
 
 def stop_recording(base_url: str) -> dict[str, Any]:
     """Stop the current SkellyCam recording and return HTTP response plus timing metadata."""
-    return _timed_request("POST", _url(base_url, "/stop_recording"))
+    return _timed_request("GET", _url(base_url, "/skellycam/camera/group/all/record/stop"))
