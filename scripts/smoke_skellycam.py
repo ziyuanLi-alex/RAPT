@@ -27,7 +27,7 @@ def main() -> int:
 
     print("Checking SkellyCam health...")
     health = skellycam_client.check_health(args.base_url)
-    print(f"health: {health}")
+    print(f"health: status={health['status_code']}")
 
     print(f"Starting recording: {args.recording_name}")
     start = skellycam_client.start_recording(
