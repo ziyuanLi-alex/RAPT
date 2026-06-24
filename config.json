@@ -1,9 +1,9 @@
 {
     "baud": 115200,
-    "com": "COM3",
+    "com": "COM5",
     "frame_duration_ms": 100,
-    "output_dir": "data",
-    "output_format": "h5",
+    "output_dir": "C:\\GitCode\\rapt\\data",
+    "output_format": "csv",
     "skellycam_base_url": "http://localhost:53117",
-    "skellycam_recording_dir": "H:\\lib\\Skellycam_recording"
+    "skellycam_recording_dir": "C:/Users/17005/skellycam_data/recordings"
 }
